@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, ClipboardCheck, MapPin, Settings, CheckCircle2, XCircle, AlertCircle, Info } from 'lucide-react';
+import { LayoutDashboard, Users, ClipboardCheck, MapPin, Settings, CheckCircle2, XCircle, AlertCircle, Info, KeyRound, Briefcase } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
 export type NavItem = {
@@ -33,6 +33,12 @@ export const NAV_ITEMS: NavItem[] = [
     icon: MapPin,
     matchSegments: ['tools', 'location-verifier'],
   },
+  {
+    href: '/lecturer/set-code',
+    label: 'Set Attendance Code',
+    icon: KeyRound,
+    matchSegments: ['lecturer', 'set-code'],
+  }
 ];
 
 export type Student = {

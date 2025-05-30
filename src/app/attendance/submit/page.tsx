@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -18,12 +19,13 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, MapPin, ShieldCheck, Send } from 'lucide-react';
+import { Loader2, MapPin, ShieldCheck, Send, KeyRound } from 'lucide-react';
 import { MOCK_STUDENTS, MOCK_COURSES } from '@/lib/mock-data';
 
 const attendanceSubmissionSchema = z.object({
   studentId: z.string().min(1, { message: 'Student ID is required.' }),
   courseCode: z.string().min(1, { message: 'Course code is required.' }),
+  attendanceCode: z.string().min(1, { message: 'Attendance code is required.' }),
   latitude: z.number().optional(),
   longitude: z.number().optional(),
 });
@@ -42,6 +44,7 @@ export default function SubmitAttendancePage() {
     defaultValues: {
       studentId: '',
       courseCode: '',
+      attendanceCode: '',
     },
   });
 
@@ -94,6 +97,17 @@ export default function SubmitAttendancePage() {
         setIsSubmitting(false);
         return;
     }
+    
+    // Mock: In a real app, validate data.attendanceCode against the code set by lecturer
+    if (data.attendanceCode.toUpperCase() !== 'OKOATTEND') { // Example mock check
+        toast({
+            variant: 'destructive',
+            title: 'Invalid Code',
+            description: 'The attendance code is incorrect. Please check with your lecturer.',
+        });
+        setIsSubmitting(false);
+        return;
+    }
 
 
     console.log('Attendance Data:', data);
@@ -113,7 +127,7 @@ export default function SubmitAttendancePage() {
       <CardHeader>
         <CardTitle>Submit Attendance</CardTitle>
         <CardDescription>
-          Mark your attendance for a course. Ensure your location services are enabled.
+          Mark your attendance for a course. Ensure your location services are enabled and you have the attendance code.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -152,6 +166,23 @@ export default function SubmitAttendancePage() {
                       ))}
                     </SelectContent>
                   </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            
+            <FormField
+              control={form.control}
+              name="attendanceCode"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="flex items-center gap-1">
+                    <KeyRound className="h-4 w-4" />
+                    Attendance Code
+                  </FormLabel>
+                  <FormControl>
+                    <Input placeholder="Enter code from lecturer" {...field} />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
