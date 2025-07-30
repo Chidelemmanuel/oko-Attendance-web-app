@@ -2,45 +2,32 @@ import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongodb';
 import CourseModel from '@/models/Course';
 import UserModel from '@/models/User';
-import jwt from 'jsonwebtoken';
+import { verifyJwt } from '@/lib/utils';
+import { cookies } from 'next/headers';
 
-// This is a simplified version. In a real app, you'd get the lecturer's ID from a verified JWT.
-async function getLecturerIdFromToken(req: NextRequest) {
-    // For now, let's assume a mock lecturer for simplicity.
-    // In a real app, you'd do something like this:
-    // const authHeader = req.headers.get('authorization');
-    // if (!authHeader || !authHeader.startsWith('Bearer ')) return null;
-    // const token = authHeader.split(' ')[1];
-    // try {
-    //   const decoded = jwt.verify(token, process.env.JWT_SECRET!);
-    //   return (decoded as any).userId;
-    // } catch (error) {
-    //   return null;
-    // }
-    
-    // Find a mock lecturer to associate the course with
-    let lecturer = await UserModel.findOne({ role: 'lecturer' });
-    // If no lecturer exists, create one for testing purposes
-    if (!lecturer) {
-        lecturer = await new UserModel({
-            identifier: 'FPO/STAFF/001',
-            fullName: 'Dr. Mock Lecturer',
-            email: 'lecturer@example.com',
-            password: 'password123', // Not hashed as this is for testing association
-            role: 'lecturer'
-        }).save();
+async function getLecturerIdFromToken() {
+    const token = cookies().get('auth_token')?.value;
+    if (!token) return null;
+
+    try {
+        const decoded = await verifyJwt(token);
+        if (decoded && decoded.role === 'lecturer') {
+            return decoded.userId as string;
+        }
+        return null;
+    } catch (error) {
+        return null;
     }
-    return lecturer._id;
 }
 
 
 export async function POST(req: NextRequest) {
   try {
     await dbConnect();
-    const lecturerId = await getLecturerIdFromToken(req);
+    const lecturerId = await getLecturerIdFromToken();
 
     if (!lecturerId) {
-      return NextResponse.json({ message: 'Authentication required' }, { status: 401 });
+      return NextResponse.json({ message: 'Authentication required or not a lecturer' }, { status: 401 });
     }
 
     const { courseCode, attendanceCode, latitude, longitude } = await req.json();
@@ -49,8 +36,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: 'Course code, attendance code, and location are required' }, { status: 400 });
     }
 
+    // First, try to find an existing course to get its name.
+    // In a real app, courses would likely be pre-populated with names.
+    let existingCourse = await CourseModel.findOne({ code: courseCode }).lean();
+    
     const courseData = {
-        name: courseCode, // Assuming name is same as code for simplicity
+        name: existingCourse?.name || courseCode, // Use existing name or default to code
+        code: courseCode,
         lecturerId: lecturerId,
         attendanceCode: attendanceCode,
         latitude: latitude,
@@ -58,9 +50,9 @@ export async function POST(req: NextRequest) {
     };
 
     const course = await CourseModel.findOneAndUpdate(
-        { code: courseCode, lecturerId: lecturerId },
+        { code: courseCode },
         { $set: courseData },
-        { new: true, upsert: true } // upsert: true creates the doc if it doesn't exist
+        { new: true, upsert: true, setDefaultsOnInsert: true }
     );
 
     return NextResponse.json({ message: 'Attendance code set successfully', course }, { status: 200 });

@@ -19,7 +19,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { KeyRound, Settings2, ShieldCheck, MapPin, Loader2, AlertTriangle } from 'lucide-react';
+import { KeyRound, Settings2, ShieldCheck, MapPin, Loader2, AlertTriangle, ShieldAlert } from 'lucide-react';
 import { MOCK_COURSES } from '@/lib/mock-data';
 
 const setCodeSchema = z.object({
@@ -31,12 +31,31 @@ const setCodeSchema = z.object({
 
 type SetCodeFormValues = z.infer<typeof setCodeSchema>;
 
+
+function AccessDenied() {
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                    <ShieldAlert className="h-6 w-6 text-destructive" />
+                    Access Denied
+                </CardTitle>
+            </CardHeader>
+            <CardContent>
+                <p className="text-muted-foreground">You do not have permission to view this page. This area is restricted to lecturers only.</p>
+            </CardContent>
+        </Card>
+    )
+}
+
 export default function SetAttendanceCodePage() {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [isFetchingLocation, setIsFetchingLocation] = useState(true);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [currentLocation, setCurrentLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [isLecturer, setIsLecturer] = useState<boolean | null>(null);
+
 
   const form = useForm<SetCodeFormValues>({
     resolver: zodResolver(setCodeSchema),
@@ -47,6 +66,15 @@ export default function SetAttendanceCodePage() {
   });
 
   useEffect(() => {
+    if (typeof window !== 'undefined') {
+        const role = localStorage.getItem('userRole');
+        setIsLecturer(role === 'lecturer');
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!isLecturer) return; // Only fetch location if user is a lecturer
+
     if (!navigator.geolocation) {
       setLocationError('Geolocation is not supported by your browser.');
       setIsFetchingLocation(false);
@@ -71,7 +99,7 @@ export default function SetAttendanceCodePage() {
       },
       { enableHighAccuracy: true }
     );
-  }, [form]);
+  }, [form, isLecturer]);
 
 
   async function onSubmit(data: SetCodeFormValues) {
@@ -142,6 +170,14 @@ export default function SetAttendanceCodePage() {
         )
     }
     return null;
+  }
+  
+  if (isLecturer === null) {
+    return null; // Or a full page loader
+  }
+  
+  if (!isLecturer) {
+    return <AccessDenied />;
   }
 
   return (
