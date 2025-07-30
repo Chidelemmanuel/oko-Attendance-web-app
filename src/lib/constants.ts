@@ -23,11 +23,10 @@ export const NAV_ITEMS: NavItem[] = [
     roles: ['lecturer'], // Only lecturers can see the full student list
   },
   {
-    href: '/tools/location-verifier',
+    href: '/attendance/submit',
     label: 'Submit Attendance',
     icon: ClipboardCheck,
     roles: ['student'],
-    matchSegments: ['attendance', 'submit'], // Match /attendance/submit as well
   },
    {
     href: '/lecturer/set-code',

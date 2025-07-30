@@ -69,8 +69,8 @@ export default function LocationVerifierPage() {
         studentId: user.id, // Use generic ID field for verification
         latitude: currentLocation.latitude,
         longitude: currentLocation.longitude,
-        expectedLatitude: currentLocation.latitude, // Verify against the user's own current location
-        expectedLongitude: currentLocation.longitude,
+        expectedLatitude: 6.0224, // School gate
+        expectedLongitude: 7.0700, // School gate
     });
     
     if ('error' in result) {
@@ -82,18 +82,15 @@ export default function LocationVerifierPage() {
       setIsVerifying(false);
     } else {
       setVerificationResult(result);
-      if (result.isOnSiteProbability > 0.5) { // Threshold for allowing progression
+      if (result.isOnSiteProbability > 0.7) { // Threshold for allowing progression
          toast({
             title: 'Verification Successful!',
             description: `You can now proceed.`,
          });
          
-         // Redirect based on role
-         if(user.role === 'student') {
-            router.push(`/attendance/submit?lat=${currentLocation.latitude}&lon=${currentLocation.longitude}`);
-         } else if (user.role === 'lecturer') {
-            router.push(`/lecturer/set-code?lat=${currentLocation.latitude}&lon=${currentLocation.longitude}`);
-         }
+         // This page is now just a tool, not a part of the flow
+         setIsVerifying(false);
+
 
       } else {
          toast({
@@ -107,27 +104,11 @@ export default function LocationVerifierPage() {
   }
   
   const getActionInfo = () => {
-    if (user.role === 'student') {
-        return {
-            title: 'Step 1: Location Verification for Attendance',
-            description: 'Before submitting attendance, we must verify you are on-site using AI.',
-            buttonIcon: ClipboardCheck,
-            buttonText: 'Verify & Proceed to Submit Attendance',
-        };
-    }
-     if (user.role === 'lecturer') {
-        return {
-            title: 'Step 1: Location Verification for Setting Code',
-            description: 'Before setting an attendance code, we must verify you are on-site using AI.',
-            buttonIcon: KeyRound,
-            buttonText: 'Verify & Proceed to Set Code',
-        };
-    }
-    return { // Default/fallback
-        title: 'Location Verification',
-        description: 'Verifying your location.',
+    return {
+        title: 'AI Location Verifier Tool',
+        description: 'This tool uses AI to verify if a given location is on-site. Your current location is used for the test.',
         buttonIcon: Compass,
-        buttonText: 'Verify Location',
+        buttonText: 'Run Verification Test',
     }
   }
 
