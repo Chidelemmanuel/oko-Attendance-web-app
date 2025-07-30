@@ -52,16 +52,34 @@ export default function LecturerSignupPage() {
 
   async function onSubmit(data: SignupFormValues) {
     setIsLoading(true);
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    setIsLoading(false);
+    try {
+      const res = await fetch('/api/auth/lecturer/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
 
-    // Mock signup logic
-    toast({
-      title: 'Account Created',
-      description: 'Your lecturer account has been successfully created.',
-    });
-    router.push('/auth/lecturer/login'); // Redirect to login page
+      const result = await res.json();
+
+      if (!res.ok) {
+        throw new Error(result.message || 'Something went wrong');
+      }
+
+      toast({
+        title: 'Account Created',
+        description: 'Your lecturer account has been successfully created. Please login.',
+      });
+      router.push('/auth/lecturer/login');
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred.';
+      toast({
+        variant: 'destructive',
+        title: 'Signup Failed',
+        description: errorMessage,
+      });
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   return (

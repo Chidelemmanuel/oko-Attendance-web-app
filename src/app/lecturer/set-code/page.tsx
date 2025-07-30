@@ -20,7 +20,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { KeyRound, Settings2 } from 'lucide-react';
-import { MOCK_COURSES } from '@/lib/mock-data';
+import { MOCK_COURSES } from '@/lib/mock-data'; // This will be replaced by actual data later
 
 const setCodeSchema = z.object({
   courseCode: z.string().min(1, { message: 'Please select a course.' }),
@@ -43,17 +43,39 @@ export default function SetAttendanceCodePage() {
 
   async function onSubmit(data: SetCodeFormValues) {
     setIsLoading(true);
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    setIsLoading(false);
+    try {
+      const res = await fetch('/api/lecturer/set-code', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          // In a real app, an auth token would be sent
+          // 'Authorization': `Bearer ${your_auth_token}`
+        },
+        body: JSON.stringify(data),
+      });
 
-    const courseName = MOCK_COURSES.find(c => c.code === data.courseCode)?.name || data.courseCode;
+      const result = await res.json();
 
-    toast({
-      title: 'Attendance Code Set',
-      description: `Code "${data.attendanceCode}" has been set for ${courseName}.`,
-    });
-    form.reset();
+      if (!res.ok) {
+        throw new Error(result.message || 'Failed to set code');
+      }
+      
+      toast({
+        title: 'Attendance Code Set',
+        description: `Code "${data.attendanceCode}" has been set for ${result.course.name}.`,
+      });
+      form.reset();
+
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred.';
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: errorMessage,
+      });
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   return (
@@ -82,6 +104,7 @@ export default function SetAttendanceCodePage() {
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
+                      {/* In a real app, you would fetch the lecturer's courses */}
                       {MOCK_COURSES.map(course => (
                         <SelectItem key={course.code} value={course.code}>
                           {course.name} ({course.code})

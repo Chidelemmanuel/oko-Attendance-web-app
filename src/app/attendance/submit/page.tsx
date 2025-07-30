@@ -20,14 +20,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, MapPin, ShieldCheck, Send, KeyRound } from 'lucide-react';
-import { MOCK_STUDENTS, MOCK_COURSES } from '@/lib/mock-data';
+import { MOCK_COURSES, MOCK_STUDENTS } from '@/lib/mock-data'; // MOCK_STUDENTS for placeholder ID
 
 const attendanceSubmissionSchema = z.object({
   studentId: z.string().min(1, { message: 'Student ID is required.' }),
   courseCode: z.string().min(1, { message: 'Course code is required.' }),
   attendanceCode: z.string().min(1, { message: 'Attendance code is required.' }),
-  latitude: z.number().optional(),
-  longitude: z.number().optional(),
+  latitude: z.number({ required_error: "Location is required." }),
+  longitude: z.number({ required_error: "Location is required." }),
 });
 
 type AttendanceFormValues = z.infer<typeof attendanceSubmissionSchema>;
@@ -42,7 +42,7 @@ export default function SubmitAttendancePage() {
   const form = useForm<AttendanceFormValues>({
     resolver: zodResolver(attendanceSubmissionSchema),
     defaultValues: {
-      studentId: '',
+      studentId: MOCK_STUDENTS[0]?.id || '', // Pre-fill with a mock student for demo
       courseCode: '',
       attendanceCode: '',
     },
@@ -52,6 +52,8 @@ export default function SubmitAttendancePage() {
     if (location) {
       form.setValue('latitude', location.latitude);
       form.setValue('longitude', location.longitude);
+      form.clearErrors('latitude');
+      form.clearErrors('longitude');
     }
   }, [location, form]);
 
@@ -83,43 +85,37 @@ export default function SubmitAttendancePage() {
 
   async function onSubmit(data: AttendanceFormValues) {
     setIsSubmitting(true);
-    // Simulate API call and cryptographic attestation
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    try {
+        const res = await fetch('/api/attendance/submit', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
 
-    // Mock logic: check if student ID exists
-    const studentExists = MOCK_STUDENTS.some(s => s.id === data.studentId);
-    if (!studentExists) {
+        const result = await res.json();
+
+        if(!res.ok) {
+            throw new Error(result.message || "Submission failed");
+        }
+
+        toast({
+          title: 'Attendance Submitted',
+          description: result.message,
+        });
+        form.reset({studentId: data.studentId, courseCode: '', attendanceCode: ''});
+        setLocation(null);
+        setLocationError(null);
+
+    } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred.';
         toast({
             variant: 'destructive',
             title: 'Submission Failed',
-            description: `Student ID "${data.studentId}" not found. Please check and try again.`,
+            description: errorMessage,
         });
+    } finally {
         setIsSubmitting(false);
-        return;
     }
-    
-    // Mock: In a real app, validate data.attendanceCode against the code set by lecturer
-    if (data.attendanceCode.toUpperCase() !== 'OKOATTEND') { // Example mock check
-        toast({
-            variant: 'destructive',
-            title: 'Invalid Code',
-            description: 'The attendance code is incorrect. Please check with your lecturer.',
-        });
-        setIsSubmitting(false);
-        return;
-    }
-
-
-    console.log('Attendance Data:', data);
-    // In a real app, this data (along with device attestation proof) would be sent to a backend.
-    toast({
-      title: 'Attendance Submitted',
-      description: `Attendance for ${data.studentId} in ${data.courseCode} has been recorded.`,
-    });
-    form.reset();
-    setLocation(null);
-    setLocationError(null);
-    setIsSubmitting(false);
   }
 
   return (
@@ -209,6 +205,11 @@ export default function SubmitAttendancePage() {
                <FormDescription>
                 Your location will be used to verify on-site presence.
               </FormDescription>
+               <FormField
+                control={form.control}
+                name="latitude"
+                render={() => <FormMessage />}
+              />
             </FormItem>
             
             <div className="flex items-center p-3 border rounded-md bg-secondary/50">
@@ -216,7 +217,7 @@ export default function SubmitAttendancePage() {
                 <div>
                     <p className="text-sm font-medium">Secure Submission</p>
                     <p className="text-xs text-muted-foreground">
-                        Your attendance is submitted securely using device-generated cryptographic attestation to ensure data integrity.
+                        Your attendance is submitted securely and location is verified using GenAI.
                     </p>
                 </div>
             </div>
@@ -229,9 +230,6 @@ export default function SubmitAttendancePage() {
               )}
               Submit Attendance
             </Button>
-             {!location && !isFetchingLocation && (
-                <p className="text-sm text-center text-destructive">Please acquire your location before submitting.</p>
-            )}
           </form>
         </Form>
       </CardContent>

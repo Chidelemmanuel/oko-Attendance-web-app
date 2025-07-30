@@ -43,16 +43,35 @@ export default function LecturerLoginPage() {
 
   async function onSubmit(data: LoginFormValues) {
     setIsLoading(true);
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    setIsLoading(false);
+    try {
+      const res = await fetch('/api/auth/lecturer/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
 
-    // Mock login logic
-    toast({
-      title: 'Login Successful',
-      description: `Welcome back, Lecturer ${data.email}!`,
-    });
-    router.push('/'); // Redirect to dashboard (in real app, lecturer dashboard)
+      const result = await res.json();
+
+      if (!res.ok) {
+        throw new Error(result.message || 'Something went wrong');
+      }
+
+      toast({
+        title: 'Login Successful',
+        description: `Welcome back, ${result.user.fullName}!`,
+      });
+      // In a real app, you'd store the token (result.token)
+      router.push('/lecturer/set-code');
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred.';
+      toast({
+        variant: 'destructive',
+        title: 'Login Failed',
+        description: errorMessage,
+      });
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   return (
