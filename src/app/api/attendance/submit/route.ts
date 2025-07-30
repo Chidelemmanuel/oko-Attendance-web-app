@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: 'Student not found' }, { status: 404 });
     }
 
-    // 2. Find Course and a-priori Validate Attendance Code
+    // 2. Find Course and Validate Attendance Code
     const course = await CourseModel.findOne({ code: courseCode });
     if (!course) {
       return NextResponse.json({ message: `Course ${courseCode} not found` }, { status: 404 });
@@ -33,19 +33,19 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ message: 'Lecturer has not set a location for this class yet.' }, { status: 400 });
     }
 
-    // 3. Verify Location using GenAI
+    // 3. Verify Location using GenAI against the lecturer's captured location
     const verificationInput = {
       studentId: student.identifier,
       latitude,
       longitude,
-      expectedLatitude: course.latitude,
-      expectedLongitude: course.longitude,
+      expectedLatitude: course.latitude, // Use the lecturer's saved location for this course
+      expectedLongitude: course.longitude, // Use the lecturer's saved location for this course
     };
 
     const verificationResult = await verifyAttendanceLocation(verificationInput);
 
     // 4. Decide on attendance status based on AI verification
-    const isOnSite = verificationResult.isOnSiteProbability > 0.5; // Threshold to accept 0.9 and 1.0 as present.
+    const isOnSite = verificationResult.isOnSiteProbability > 0.5; // Threshold can be adjusted
     
     // 5. Create and save the attendance record
     const newAttendance = new AttendanceModel({
@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
 
     await newAttendance.save();
     
-    // Clear the attendance code after successful use
+    // Clear the attendance code after successful use to prevent reuse
     course.attendanceCode = null;
     await course.save();
 

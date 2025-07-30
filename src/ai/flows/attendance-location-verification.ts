@@ -15,8 +15,8 @@ const VerifyAttendanceLocationInputSchema = z.object({
   studentId: z.string().describe('The ID of the student.'),
   latitude: z.number().describe('The latitude of the attendance submission.'),
   longitude: z.number().describe('The longitude of the attendance submission.'),
-  expectedLatitude: z.number().describe('The expected latitude of the location.'),
-  expectedLongitude: z.number().describe('The expected longitude of the location.'),
+  expectedLatitude: z.number().describe("The lecturer's latitude for the class."),
+  expectedLongitude: z.number().describe("The lecturer's longitude for the class."),
 });
 export type VerifyAttendanceLocationInput = z.infer<
   typeof VerifyAttendanceLocationInputSchema
@@ -28,7 +28,7 @@ const VerifyAttendanceLocationOutputSchema = z.object({
     .min(0)
     .max(1)
     .describe(
-      'The probability that the student is on-site, between 0 and 1 inclusive.'
+      'The probability that the student is at the class location, between 0 and 1 inclusive.'
     ),
   reasoning: z
     .string()
@@ -49,17 +49,17 @@ const prompt = ai.definePrompt({
   name: 'verifyAttendanceLocationPrompt',
   input: {schema: VerifyAttendanceLocationInputSchema},
   output: {schema: VerifyAttendanceLocationOutputSchema},
-  prompt: `You are an AI-powered attendance verification system. Your task is to determine the probability that a student is physically on-site for a class based on their submitted GPS coordinates versus the expected coordinates.
+  prompt: `You are an AI-powered attendance verification system. Your task is to determine the probability that a student is physically present for a class by comparing their submitted GPS coordinates against the coordinates captured by the lecturer for that specific class session.
 
 Analyze the provided coordinates:
 - Student's submitted Latitude: {{latitude}}
 - Student's submitted Longitude: {{longitude}}
-- Expected Latitude for the class: {{expectedLatitude}}
-- Expected Longitude for the class: {{expectedLongitude}}
+- Lecturer's captured Latitude for the class: {{expectedLatitude}}
+- Lecturer's captured Longitude for the class: {{expectedLongitude}}
 
-Consider small discrepancies as potentially acceptable (e.g., due to GPS drift or being in a large lecture hall). A location within a few meters should be considered highly probable. A location that is significantly far away should be considered highly improbable.
+Consider small discrepancies as potentially acceptable (e.g., due to GPS drift or being in a large building or lecture hall). A location within a few meters should be considered highly probable. A location that is significantly far away should be considered highly improbable.
 
-Based on your analysis, provide a probability score between 0.0 (definitely not on-site) and 1.0 (definitely on-site). Also provide a brief, clear reasoning for your decision.
+Based on your analysis, provide a probability score between 0.0 (definitely not at the class location) and 1.0 (definitely at the class location). Also provide a brief, clear reasoning for your decision.
 
 Student ID: {{studentId}}
 `,
