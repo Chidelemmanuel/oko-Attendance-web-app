@@ -8,6 +8,8 @@ import { Users, CheckSquare, MapPin, BarChart3, AlertTriangle, ShieldCheck, Clip
 import { MonthlyAttendanceChart } from "@/components/charts/monthly-attendance-chart";
 import { useQuery } from "@tanstack/react-query";
 import { DashboardSkeleton } from "@/components/skeletons/dashboard-skeleton";
+import { StudentLocationVerifier } from "@/components/student-location-verifier";
+import { useEffect, useState } from "react";
 
 type DashboardStats = {
   totalStudents: number;
@@ -25,11 +27,19 @@ async function fetchDashboardStats(): Promise<DashboardStats> {
 }
 
 export default function DashboardPage() {
-
+  const [userRole, setUserRole] = useState<string | null>(null);
+  
   const { data: stats, isLoading, isError } = useQuery<DashboardStats>({
     queryKey: ['dashboardStats'],
     queryFn: fetchDashboardStats,
   });
+
+  useEffect(() => {
+     if (typeof window !== 'undefined') {
+        const role = localStorage.getItem('userRole');
+        setUserRole(role);
+    }
+  }, []);
 
   if (isLoading) {
     return <DashboardSkeleton />;
@@ -47,6 +57,9 @@ export default function DashboardPage() {
 
   return (
     <div className="flex flex-col gap-6">
+      {userRole === 'student' && (
+        <StudentLocationVerifier />
+      )}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
