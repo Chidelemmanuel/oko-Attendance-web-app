@@ -49,25 +49,19 @@ const prompt = ai.definePrompt({
   name: 'verifyAttendanceLocationPrompt',
   input: {schema: VerifyAttendanceLocationInputSchema},
   output: {schema: VerifyAttendanceLocationOutputSchema},
-  prompt: `You are a highly precise attendance verification system. Your task is to determine if a student is on-site based on their GPS coordinates compared to the lecturer's coordinates for the class.
+  prompt: `You are an AI-powered attendance verification system. Your task is to determine the probability that a student is physically on-site for a class based on their submitted GPS coordinates versus the expected coordinates.
 
-You will be given the student's submitted latitude and longitude, and the expected latitude and longitude set by the lecturer.
+Analyze the provided coordinates:
+- Student's submitted Latitude: {{latitude}}
+- Student's submitted Longitude: {{longitude}}
+- Expected Latitude for the class: {{expectedLatitude}}
+- Expected Longitude for the class: {{expectedLongitude}}
 
-Here are your strict rules:
-1.  Calculate the distance in meters between the student's location and the expected location.
-2.  If the coordinates are an EXACT match (distance is 0), the student is on-site. The probability MUST be 1.0. Your reasoning should state "Exact location match."
-3.  If the calculated distance is greater than 0 but less than or equal to 10 meters, the student is still considered on-site. The probability MUST be 0.9. Your reasoning must state the calculated distance, for example: "Student is 5.4 meters away, which is within the 10-meter allowance."
-4.  If the calculated distance is greater than 10 meters, the student is considered OFF-SITE. The probability MUST be 0.1. Your reasoning must state the calculated distance, for example: "Student is 35.1 meters away, which is outside the 10-meter allowance."
+Consider small discrepancies as potentially acceptable (e.g., due to GPS drift or being in a large lecture hall). A location within a few meters should be considered highly probable. A location that is significantly far away should be considered highly improbable.
 
-Do not use any other logic. The decision must be based solely on this distance calculation.
+Based on your analysis, provide a probability score between 0.0 (definitely not on-site) and 1.0 (definitely on-site). Also provide a brief, clear reasoning for your decision.
 
 Student ID: {{studentId}}
-Submitted Latitude: {{latitude}}
-Submitted Longitude: {{longitude}}
-Expected Latitude: {{expectedLatitude}}
-Expected Longitude: {{expectedLongitude}}
-
-You MUST output a JSON object that follows these rules.
 `,
 });
 
