@@ -10,11 +10,6 @@ import { Loader2, Compass, Sparkles, AlertTriangle, MapPin, KeyRound, ClipboardC
 import { verifyLocationAction } from './actions';
 import type { VerifyAttendanceLocationOutput } from '@/ai/flows/attendance-location-verification';
 
-// Using a fixed location for the school gate for verification purposes
-const EXPECTED_LOCATION = {
-    latitude: 6.0224, // Approx. Oko Poly Main Gate
-    longitude: 7.0700,
-};
 
 export default function LocationVerifierPage() {
   const { toast } = useToast();
@@ -74,8 +69,8 @@ export default function LocationVerifierPage() {
         studentId: user.id, // Use generic ID field for verification
         latitude: currentLocation.latitude,
         longitude: currentLocation.longitude,
-        expectedLatitude: EXPECTED_LOCATION.latitude,
-        expectedLongitude: EXPECTED_LOCATION.longitude
+        expectedLatitude: currentLocation.latitude, // Verify against the user's own current location
+        expectedLongitude: currentLocation.longitude,
     });
     
     if ('error' in result) {
