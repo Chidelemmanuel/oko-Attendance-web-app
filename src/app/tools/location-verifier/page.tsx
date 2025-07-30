@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Compass, Sparkles, AlertTriangle, MapPin } from 'lucide-react';
+import { Loader2, Compass, Sparkles, AlertTriangle, MapPin, KeyRound, ClipboardCheck } from 'lucide-react';
 import { verifyLocationAction } from './actions';
 import type { VerifyAttendanceLocationOutput } from '@/ai/flows/attendance-location-verification';
 
@@ -24,12 +24,13 @@ export default function LocationVerifierPage() {
   const [verificationResult, setVerificationResult] = useState<VerifyAttendanceLocationOutput | null>(null);
   const [currentLocation, setCurrentLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
-  const [studentId, setStudentId] = useState<string | null>(null);
-  
+  const [user, setUser] = useState<{ id: string | null, role: string | null }>({ id: null, role: null });
+
   useEffect(() => {
     if (typeof window !== 'undefined') {
         const id = localStorage.getItem('userIdentifier');
-        setStudentId(id);
+        const role = localStorage.getItem('userRole');
+        setUser({ id, role });
     }
   }, []);
 
@@ -57,11 +58,11 @@ export default function LocationVerifierPage() {
   }, []);
 
   async function handleVerification() {
-    if (!currentLocation || !studentId) {
+    if (!currentLocation || !user.id) {
         toast({
             variant: 'destructive',
             title: 'Verification Failed',
-            description: 'Could not get your current location or student ID. Please try again.',
+            description: 'Could not get your current location or user ID. Please try again.',
         });
         return;
     }
@@ -70,7 +71,7 @@ export default function LocationVerifierPage() {
     setVerificationResult(null);
 
     const result = await verifyLocationAction({
-        studentId: studentId,
+        studentId: user.id, // Use generic ID field for verification
         latitude: currentLocation.latitude,
         longitude: currentLocation.longitude,
         expectedLatitude: EXPECTED_LOCATION.latitude,
@@ -86,22 +87,56 @@ export default function LocationVerifierPage() {
       setIsVerifying(false);
     } else {
       setVerificationResult(result);
-      if (result.isOnSiteProbability > 0.5) { // Threshold for allowing submission
+      if (result.isOnSiteProbability > 0.5) { // Threshold for allowing progression
          toast({
             title: 'Verification Successful!',
-            description: `You can now proceed to submit your attendance.`,
+            description: `You can now proceed.`,
          });
-         router.push(`/attendance/submit?lat=${currentLocation.latitude}&lon=${currentLocation.longitude}`);
+         
+         // Redirect based on role
+         if(user.role === 'student') {
+            router.push(`/attendance/submit?lat=${currentLocation.latitude}&lon=${currentLocation.longitude}`);
+         } else if (user.role === 'lecturer') {
+            router.push(`/lecturer/set-code?lat=${currentLocation.latitude}&lon=${currentLocation.longitude}`);
+         }
+
       } else {
          toast({
             variant: 'destructive',
             title: 'Verification Failed',
-            description: `AI determined you are not on-site. Probability: ${(result.isOnSiteProbability * 100).toFixed(0)}%. You cannot submit attendance.`,
+            description: `AI determined you are not on-site. Probability: ${(result.isOnSiteProbability * 100).toFixed(0)}%. You cannot proceed.`,
          });
          setIsVerifying(false);
       }
     }
   }
+  
+  const getActionInfo = () => {
+    if (user.role === 'student') {
+        return {
+            title: 'Step 1: Location Verification for Attendance',
+            description: 'Before submitting attendance, we must verify you are on-site using AI.',
+            buttonIcon: ClipboardCheck,
+            buttonText: 'Verify & Proceed to Submit Attendance',
+        };
+    }
+     if (user.role === 'lecturer') {
+        return {
+            title: 'Step 1: Location Verification for Setting Code',
+            description: 'Before setting an attendance code, we must verify you are on-site using AI.',
+            buttonIcon: KeyRound,
+            buttonText: 'Verify & Proceed to Set Code',
+        };
+    }
+    return { // Default/fallback
+        title: 'Location Verification',
+        description: 'Verifying your location.',
+        buttonIcon: Compass,
+        buttonText: 'Verify Location',
+    }
+  }
+
+  const actionInfo = getActionInfo();
 
   const renderStatus = () => {
     if (isFetchingLocation) {
@@ -132,13 +167,13 @@ export default function LocationVerifierPage() {
                         </p>
                     </div>
                 </div>
-                 <Button onClick={handleVerification} className="w-full" disabled={isVerifying}>
+                 <Button onClick={handleVerification} className="w-full" disabled={isVerifying || !user.id}>
                     {isVerifying ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     ) : (
-                    <Compass className="mr-2 h-4 w-4" />
+                    <actionInfo.buttonIcon className="mr-2 h-4 w-4" />
                     )}
-                    Verify & Proceed to Submit Attendance
+                    {actionInfo.buttonText}
                 </Button>
             </div>
         )
@@ -150,10 +185,9 @@ export default function LocationVerifierPage() {
     <div className="space-y-6">
       <Card className="max-w-2xl mx-auto">
         <CardHeader>
-          <CardTitle>Step 1: Location Verification</CardTitle>
+          <CardTitle>{actionInfo.title}</CardTitle>
           <CardDescription>
-            Before submitting attendance, we must verify you are on-site using AI. 
-            Your location will be checked against the school's known coordinates.
+            {actionInfo.description} Your location will be checked against the school's known coordinates.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex justify-center items-center min-h-[150px]">

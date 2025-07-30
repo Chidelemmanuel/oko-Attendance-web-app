@@ -27,12 +27,14 @@ export const NAV_ITEMS: NavItem[] = [
     label: 'Submit Attendance',
     icon: ClipboardCheck,
     roles: ['student'],
+    matchSegments: ['attendance', 'submit'], // Match /attendance/submit as well
   },
    {
-    href: '/lecturer/set-code',
+    href: '/tools/location-verifier',
     label: 'Set Attendance Code',
     icon: KeyRound,
     roles: ['lecturer'],
+    matchSegments: ['lecturer', 'set-code'], // Match /lecturer/set-code as well
   },
   {
     href: '/tools/location-verifier',

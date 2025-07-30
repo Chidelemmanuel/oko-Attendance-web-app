@@ -1,7 +1,8 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
@@ -19,8 +20,8 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { KeyRound, Settings2 } from 'lucide-react';
-import { MOCK_COURSES } from '@/lib/mock-data'; // This will be replaced by actual data later
+import { KeyRound, Settings2, ShieldCheck, AlertTriangle } from 'lucide-react';
+import { MOCK_COURSES } from '@/lib/mock-data';
 
 const setCodeSchema = z.object({
   courseCode: z.string().min(1, { message: 'Please select a course.' }),
@@ -29,9 +30,36 @@ const setCodeSchema = z.object({
 
 type SetCodeFormValues = z.infer<typeof setCodeSchema>;
 
+function SetCodeCard({ children, isEnabled }: { children: React.ReactNode, isEnabled: boolean }) {
+    if (!isEnabled) {
+        return (
+             <Card className="max-w-2xl mx-auto">
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                        <AlertTriangle className="h-6 w-6 text-destructive" />
+                        Location Not Verified
+                    </CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <p className="text-muted-foreground">
+                        You must verify your location before you can set an attendance code.
+                        Please use the sidebar link to start the verification process.
+                    </p>
+                </CardContent>
+            </Card>
+        );
+    }
+    return <Card className="max-w-2xl mx-auto">{children}</Card>;
+}
+
 export default function SetAttendanceCodePage() {
   const { toast } = useToast();
+  const searchParams = useSearchParams();
   const [isLoading, setIsLoading] = useState(false);
+
+  const verifiedLatitude = searchParams.get('lat');
+  const verifiedLongitude = searchParams.get('lon');
+  const isPageEnabled = !!verifiedLatitude && !!verifiedLongitude;
 
   const form = useForm<SetCodeFormValues>({
     resolver: zodResolver(setCodeSchema),
@@ -48,8 +76,6 @@ export default function SetAttendanceCodePage() {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          // In a real app, an auth token would be sent
-          // 'Authorization': `Bearer ${your_auth_token}`
         },
         body: JSON.stringify(data),
       });
@@ -79,13 +105,13 @@ export default function SetAttendanceCodePage() {
   }
 
   return (
-    <Card className="max-w-2xl mx-auto">
+    <SetCodeCard isEnabled={isPageEnabled}>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
             <KeyRound className="h-6 w-6 text-primary" /> Set Attendance Code
         </CardTitle>
         <CardDescription>
-          Set a unique code for students to use when submitting attendance for a specific course session.
+          Your location has been verified. Set a unique code for students to use for a specific course session.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -97,7 +123,7 @@ export default function SetAttendanceCodePage() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Course</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!isPageEnabled}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Select a course" />
@@ -123,7 +149,7 @@ export default function SetAttendanceCodePage() {
                 <FormItem>
                   <FormLabel>Attendance Code</FormLabel>
                   <FormControl>
-                    <Input placeholder="e.g., CS211NOW" {...field} />
+                    <Input placeholder="e.g., CS211NOW" {...field} disabled={!isPageEnabled} />
                   </FormControl>
                   <FormDescription>
                     Students will need to enter this exact code to mark their attendance.
@@ -132,13 +158,26 @@ export default function SetAttendanceCodePage() {
                 </FormItem>
               )}
             />
-            <Button type="submit" className="w-full" disabled={isLoading}>
+
+            <div className="flex items-center gap-2 p-2 border rounded-md bg-muted">
+                <ShieldCheck className="h-5 w-5 text-green-600" />
+                <div className="flex-1">
+                    <p className="font-semibold text-green-700">Location Verified</p>
+                    {isPageEnabled && (
+                        <p className="text-sm text-muted-foreground">
+                            Lat: {parseFloat(verifiedLatitude).toFixed(4)}, Lon: {parseFloat(verifiedLongitude).toFixed(4)}
+                        </p>
+                    )}
+                </div>
+            </div>
+
+            <Button type="submit" className="w-full" disabled={isLoading || !isPageEnabled}>
               {isLoading ? 'Setting Code...' : 'Set Code'}
               <Settings2 className="ml-2 h-4 w-4" />
             </Button>
           </form>
         </Form>
       </CardContent>
-    </Card>
+    </SetCodeCard>
   );
 }
