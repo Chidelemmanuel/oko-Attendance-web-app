@@ -9,6 +9,24 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2, Compass, Sparkles, AlertTriangle, MapPin, KeyRound, ClipboardCheck } from 'lucide-react';
 import { verifyLocationAction } from './actions';
 import type { VerifyAttendanceLocationOutput } from '@/ai/flows/attendance-location-verification';
+import { useQuery } from '@tanstack/react-query';
+
+type LatestClass = {
+    courseCode: string;
+    latitude: number;
+    longitude: number;
+};
+
+async function fetchLatestClass(): Promise<LatestClass | null> {
+    const res = await fetch('/api/dashboard/latest-class');
+    if (res.status === 404) {
+        return null;
+    }
+    if (!res.ok) {
+        throw new Error('Failed to fetch latest class');
+    }
+    return res.json();
+}
 
 
 export default function LocationVerifierPage() {
@@ -20,6 +38,12 @@ export default function LocationVerifierPage() {
   const [currentLocation, setCurrentLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [user, setUser] = useState<{ id: string | null, role: string | null }>({ id: null, role: null });
+
+  const { data: latestClass, isLoading: isLoadingClass } = useQuery<LatestClass | null>({
+        queryKey: ['latestClassForTool'],
+        queryFn: fetchLatestClass,
+        enabled: user.role === 'student'
+  });
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -65,11 +89,23 @@ export default function LocationVerifierPage() {
     setIsVerifying(true);
     setVerificationResult(null);
 
-    // For lecturers using this tool, we verify against their own captured location.
-    // For students, this tool is for testing; the real verification happens on submission
-    // against the lecturer's saved coordinates for that class.
-    const expectedLatitude = user.role === 'lecturer' ? currentLocation.latitude : 6.0224;
-    const expectedLongitude = user.role === 'lecturer' ? currentLocation.longitude : 7.0700;
+    let expectedLatitude: number;
+    let expectedLongitude: number;
+
+    if (user.role === 'lecturer') {
+      // For lecturers, verify against their own captured location.
+      expectedLatitude = currentLocation.latitude;
+      expectedLongitude = currentLocation.longitude;
+    } else {
+       // For students, use the latest class location
+       if (!latestClass) {
+         toast({ variant: 'destructive', title: 'Verification Failed', description: 'No active class found to verify against.' });
+         setIsVerifying(false);
+         return;
+       }
+       expectedLatitude = latestClass.latitude;
+       expectedLongitude = latestClass.longitude;
+    }
 
 
     const result = await verifyLocationAction({
@@ -136,7 +172,10 @@ export default function LocationVerifierPage() {
   const actionInfo = getActionInfo();
 
   const renderStatus = () => {
-    if (isFetchingLocation) {
+    const isStudentWaiting = user.role === 'student' && (isLoadingClass || isFetchingLocation);
+    const isLecturerWaiting = user.role === 'lecturer' && isFetchingLocation;
+
+    if (isStudentWaiting || isLecturerWaiting) {
         return (
             <div className="flex flex-col items-center gap-2 text-muted-foreground">
                 <Loader2 className="h-8 w-8 animate-spin text-primary"/>
@@ -152,6 +191,15 @@ export default function LocationVerifierPage() {
             </div>
         )
     }
+    if (user.role === 'student' && !latestClass) {
+        return (
+             <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                <Compass className="h-8 w-8" />
+                <p className="text-center">No active classes found to verify against right now.</p>
+            </div>
+        )
+    }
+
     if (currentLocation) {
         return (
             <div className="flex flex-col items-center gap-4">
@@ -164,7 +212,7 @@ export default function LocationVerifierPage() {
                         </p>
                     </div>
                 </div>
-                 <Button onClick={handleVerification} className="w-full" disabled={isVerifying || !user.id}>
+                 <Button onClick={handleVerification} className="w-full" disabled={isVerifying || !user.id || (user.role === 'student' && !latestClass)}>
                     {isVerifying ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     ) : (
@@ -184,7 +232,7 @@ export default function LocationVerifierPage() {
         <CardHeader>
           <CardTitle>{actionInfo.title}</CardTitle>
           <CardDescription>
-            {actionInfo.description} Your location will be checked against the school's known coordinates.
+            {actionInfo.description} Your location will be checked against the lecturer's coordinates for the active class.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex justify-center items-center min-h-[150px]">
