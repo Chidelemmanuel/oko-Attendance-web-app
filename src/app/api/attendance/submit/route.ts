@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
     const verificationResult = await verifyAttendanceLocation(verificationInput);
 
     // 4. Decide on attendance status based on AI verification
-    const isOnSite = verificationResult.isOnSiteProbability > 0.7; // Example threshold
+    const isOnSite = verificationResult.isOnSiteProbability > 0.5; // Threshold to accept 0.9 and 1.0 as present.
     
     // 5. Create and save the attendance record
     const newAttendance = new AttendanceModel({

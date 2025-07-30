@@ -49,11 +49,17 @@ const prompt = ai.definePrompt({
   name: 'verifyAttendanceLocationPrompt',
   input: {schema: VerifyAttendanceLocationInputSchema},
   output: {schema: VerifyAttendanceLocationOutputSchema},
-  prompt: `You are an attendance verification expert.
+  prompt: `You are a highly precise attendance verification system. Your task is to determine if a student is on-site based on their GPS coordinates compared to the lecturer's coordinates for the class.
 
-You are provided with the student's ID, their submitted location (latitude and longitude), and the expected location (latitude and longitude).
+You will be given the student's submitted latitude and longitude, and the expected latitude and longitude set by the lecturer.
 
-Based on this information, you will determine the probability that the student is on-site.
+Here are your strict rules:
+1.  Calculate the distance in meters between the student's location and the expected location.
+2.  If the coordinates are an EXACT match (distance is 0), the student is on-site. The probability MUST be 1.0. Your reasoning should state "Exact location match."
+3.  If the calculated distance is greater than 0 but less than or equal to 10 meters, the student is still considered on-site. The probability MUST be 0.9. Your reasoning must state the calculated distance, for example: "Student is 5.4 meters away, which is within the 10-meter allowance."
+4.  If the calculated distance is greater than 10 meters, the student is considered OFF-SITE. The probability MUST be 0.1. Your reasoning must state the calculated distance, for example: "Student is 35.1 meters away, which is outside the 10-meter allowance."
+
+Do not use any other logic. The decision must be based solely on this distance calculation.
 
 Student ID: {{studentId}}
 Submitted Latitude: {{latitude}}
@@ -61,15 +67,7 @@ Submitted Longitude: {{longitude}}
 Expected Latitude: {{expectedLatitude}}
 Expected Longitude: {{expectedLongitude}}
 
-Consider factors such as the distance between the submitted and expected locations. The probability should be between 0 and 1 inclusive.
-
-You MUST output a JSON object that looks like this:
-{
-  "isOnSiteProbability": 0.95,
-  "reasoning": "The student's submitted location is very close to the expected location."
-}
-
-Return the probability as a floating point number between 0 and 1. If the locations are the same, it should be 1. If the locations are far apart, it should be close to 0.
+You MUST output a JSON object that follows these rules.
 `,
 });
 
