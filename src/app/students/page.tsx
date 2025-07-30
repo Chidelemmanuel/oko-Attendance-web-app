@@ -25,17 +25,43 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { getStudentById, getAttendanceByStudentId, MOCK_STUDENTS } from '@/lib/mock-data';
-import type { Student, AttendanceRecord, AttendanceStatus } from '@/lib/constants';
+import type { AttendanceRecord, AttendanceStatus } from '@/lib/constants';
 import { ATTENDANCE_STATUS_ICON_MAP } from '@/lib/constants';
-import { Search, User, CalendarDays, BookOpen, MapPin, CheckCircle, XCircle, AlertCircle, ShieldAlert } from 'lucide-react';
+import { Search, User, CalendarDays, BookOpen, MapPin, CheckCircle, XCircle, AlertCircle, ShieldAlert, Loader2 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
+import { useQuery } from '@tanstack/react-query';
+import { Skeleton } from '@/components/ui/skeleton';
+
 
 const studentLookupSchema = z.object({
   studentId: z.string().min(1, { message: 'Student ID is required.' }),
 });
 
 type StudentLookupFormValues = z.infer<typeof studentLookupSchema>;
+
+// Data types from the backend
+type FetchedStudent = {
+  id: string;
+  studentId: string;
+  name: string;
+  email: string;
+  department?: string;
+  level?: string;
+};
+
+// --- API Fetching Functions ---
+async function fetchStudents(): Promise<FetchedStudent[]> {
+    const res = await fetch('/api/students');
+    if (!res.ok) throw new Error('Failed to fetch students');
+    return res.json();
+}
+
+async function fetchAttendance(studentId: string): Promise<AttendanceRecord[]> {
+    const res = await fetch(`/api/students/${studentId}/attendance`);
+    if (!res.ok) throw new Error('Failed to fetch attendance records');
+    return res.json();
+}
+
 
 function AccessDenied() {
     return (
@@ -53,11 +79,48 @@ function AccessDenied() {
     )
 }
 
+function StudentsListSkeleton() {
+    return (
+      <Card>
+        <CardHeader>
+            <CardTitle>All Students Overview</CardTitle>
+            <CardDescription>List of all registered students. Click on a student or search above.</CardDescription>
+        </CardHeader>
+        <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {[...Array(6)].map((_, i) => (
+                    <div key={i} className="h-auto p-4 flex flex-col items-start text-left gap-2 rounded-lg border">
+                        <div className="flex items-center gap-3 w-full">
+                            <Skeleton className="h-12 w-12 rounded-full" />
+                            <div className="flex-1 space-y-2">
+                                <Skeleton className="h-4 w-3/4" />
+                                <Skeleton className="h-3 w-1/2" />
+                                <Skeleton className="h-3 w-1/3" />
+                            </div>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </CardContent>
+     </Card>
+    );
+}
+
 export default function StudentLookupPage() {
-  const [student, setStudent] = useState<Student | null>(null);
-  const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
-  const [notFound, setNotFound] = useState(false);
+  const [selectedStudent, setSelectedStudent] = useState<FetchedStudent | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
   const [isLecturer, setIsLecturer] = useState<boolean | null>(null);
+  
+  const { data: students, isLoading: isLoadingStudents, isError: isErrorStudents } = useQuery<FetchedStudent[]>({
+    queryKey: ['students'],
+    queryFn: fetchStudents,
+  });
+
+  const { data: attendanceRecords, isLoading: isLoadingAttendance } = useQuery<AttendanceRecord[]>({
+    queryKey: ['attendance', selectedStudent?.id],
+    queryFn: () => fetchAttendance(selectedStudent!.id),
+    enabled: !!selectedStudent, // Only fetch attendance if a student is selected
+  });
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -65,6 +128,17 @@ export default function StudentLookupPage() {
         setIsLecturer(role === 'lecturer');
     }
   }, []);
+
+
+  const filteredStudents = useMemo(() => {
+    if (!students) return [];
+    if (!searchQuery) return students;
+    return students.filter(
+      (s) =>
+        s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        s.studentId.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [students, searchQuery]);
 
   const form = useForm<StudentLookupFormValues>({
     resolver: zodResolver(studentLookupSchema),
@@ -74,26 +148,29 @@ export default function StudentLookupPage() {
   });
 
   function onSubmit(data: StudentLookupFormValues) {
-    const foundStudent = getStudentById(data.studentId);
-    if (foundStudent) {
-      setStudent(foundStudent);
-      setAttendanceRecords(getAttendanceByStudentId(foundStudent.id));
-      setNotFound(false);
+    setSearchQuery(data.studentId);
+    const foundStudent = students?.find(s => s.studentId.toLowerCase() === data.studentId.toLowerCase());
+    if(foundStudent) {
+        setSelectedStudent(foundStudent);
     } else {
-      setStudent(null);
-      setAttendanceRecords([]);
-      setNotFound(true);
+        setSelectedStudent(null);
     }
+  }
+
+  const handleStudentSelect = (student: FetchedStudent) => {
+    setSelectedStudent(student);
+    form.setValue('studentId', student.studentId);
+    setSearchQuery(''); // Clear search to show all students again in background if needed
   }
 
   const getStatusBadgeVariant = (status: AttendanceStatus) => {
     switch (status) {
       case 'Present':
-        return 'default'; // Uses primary color from theme
+        return 'default';
       case 'Absent':
         return 'destructive';
       case 'Late':
-        return 'secondary'; // Consider a yellow/orange variant if theme supports
+        return 'secondary';
       case 'Excused':
         return 'outline';
       default:
@@ -116,8 +193,7 @@ export default function StudentLookupPage() {
   };
 
   if (isLecturer === null) {
-    // Still checking role, you can show a loader here if you want
-    return null;
+    return null; // Or a full page loader
   }
   
   if (!isLecturer) {
@@ -141,7 +217,10 @@ export default function StudentLookupPage() {
                   <FormItem className="flex-grow">
                     <FormLabel>Student ID</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g., FPO/CS/001" {...field} />
+                      <Input placeholder="e.g., FPO/CS/001" {...field} onChange={(e) => {
+                          field.onChange(e);
+                          setSearchQuery(e.target.value);
+                      }} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -155,7 +234,7 @@ export default function StudentLookupPage() {
         </CardContent>
       </Card>
 
-      {notFound && (
+      {searchQuery && filteredStudents.length === 0 && (
         <Card>
           <CardContent className="pt-6">
             <div className="flex flex-col items-center justify-center text-muted-foreground">
@@ -167,25 +246,31 @@ export default function StudentLookupPage() {
         </Card>
       )}
 
-      {student && (
+      {selectedStudent && (
         <Card>
           <CardHeader>
             <div className="flex items-center gap-4">
               <Avatar className="h-20 w-20">
-                <AvatarImage src={student.avatarUrl || `https://placehold.co/100x100.png`} alt={student.name} data-ai-hint="profile person" />
-                <AvatarFallback>{student.name.substring(0, 2).toUpperCase()}</AvatarFallback>
+                <AvatarImage src={`https://placehold.co/100x100.png`} alt={selectedStudent.name} data-ai-hint="profile person" />
+                <AvatarFallback>{selectedStudent.name.substring(0, 2).toUpperCase()}</AvatarFallback>
               </Avatar>
               <div>
-                <CardTitle className="text-2xl">{student.name}</CardTitle>
+                <CardTitle className="text-2xl">{selectedStudent.name}</CardTitle>
                 <CardDescription className="text-md">
-                  {student.id} &bull; {student.department} &bull; {student.level}
+                  {selectedStudent.studentId} &bull; {selectedStudent.email}
                 </CardDescription>
+                <Button variant="link" className="p-0 h-auto" onClick={() => setSelectedStudent(null)}>Back to student list</Button>
               </div>
             </div>
           </CardHeader>
           <CardContent>
             <h3 className="text-xl font-semibold mb-4">Attendance Record</h3>
-            {attendanceRecords.length > 0 ? (
+            {isLoadingAttendance ? (
+                <div className="text-center py-8">
+                    <Loader2 className="h-8 w-8 mx-auto animate-spin text-primary" />
+                    <p className="mt-2 text-muted-foreground">Loading attendance...</p>
+                </div>
+            ) : attendanceRecords && attendanceRecords.length > 0 ? (
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -220,7 +305,7 @@ export default function StudentLookupPage() {
                             )}
                             <span>
                               {record.verifiedLocation ? 'Verified' : 'Not Verified'}
-                              {record.locationScore && ` (${(record.locationScore * 100).toFixed(0)}%)`}
+                              {record.locationScore !== undefined && ` (${(record.locationScore * 100).toFixed(0)}%)`}
                             </span>
                           </div>
                         )}
@@ -239,30 +324,31 @@ export default function StudentLookupPage() {
           </CardContent>
         </Card>
       )}
-       {!student && !notFound && (
-         <Card>
+       {!selectedStudent && (
+          isLoadingStudents ? <StudentsListSkeleton /> :
+          <Card>
             <CardHeader>
                 <CardTitle>All Students Overview</CardTitle>
                 <CardDescription>List of all registered students. Click on a student or search above.</CardDescription>
             </CardHeader>
             <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {MOCK_STUDENTS.map(s => (
+                    {filteredStudents.map(s => (
                         <Button
                             key={s.id}
                             variant="outline"
                             className="h-auto p-4 flex flex-col items-start text-left gap-2 shadow-sm hover:shadow-md transition-shadow"
-                            onClick={() => onSubmit({ studentId: s.id })}
+                            onClick={() => handleStudentSelect(s)}
                         >
                             <div className="flex items-center gap-3 w-full">
                                 <Avatar className="h-12 w-12">
-                                    <AvatarImage src={s.avatarUrl || `https://placehold.co/80x80.png`} alt={s.name} data-ai-hint="profile person" />
+                                    <AvatarImage src={`https://placehold.co/80x80.png`} alt={s.name} data-ai-hint="profile person" />
                                     <AvatarFallback>{s.name.substring(0, 2).toUpperCase()}</AvatarFallback>
                                 </Avatar>
                                 <div className="flex-1">
                                     <p className="font-semibold text-base">{s.name}</p>
-                                    <p className="text-xs text-muted-foreground">{s.id}</p>
-                                    <p className="text-xs text-muted-foreground">{s.department} - {s.level}</p>
+                                    <p className="text-xs text-muted-foreground">{s.studentId}</p>
+                                    <p className="text-xs text-muted-foreground">{s.email}</p>
                                 </div>
                             </div>
                         </Button>
