@@ -43,16 +43,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: 'Authentication required' }, { status: 401 });
     }
 
-    const { courseCode, attendanceCode } = await req.json();
+    const { courseCode, attendanceCode, latitude, longitude } = await req.json();
 
-    if (!courseCode || !attendanceCode) {
-      return NextResponse.json({ message: 'Course code and attendance code are required' }, { status: 400 });
+    if (!courseCode || !attendanceCode || latitude === undefined || longitude === undefined) {
+      return NextResponse.json({ message: 'Course code, attendance code, and location are required' }, { status: 400 });
     }
 
     const courseData = {
         name: courseCode, // Assuming name is same as code for simplicity
         lecturerId: lecturerId,
         attendanceCode: attendanceCode,
+        latitude: latitude,
+        longitude: longitude,
     };
 
     const course = await CourseModel.findOneAndUpdate(
@@ -63,7 +65,8 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ message: 'Attendance code set successfully', course }, { status: 200 });
 
-  } catch (error) {
+  } catch (error)
+  {
     console.error('Set Code Error:', error);
     let errorMessage = 'An internal server error occurred';
     if (error instanceof Error) {

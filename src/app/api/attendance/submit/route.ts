@@ -4,7 +4,6 @@ import AttendanceModel from '@/models/Attendance';
 import UserModel from '@/models/User';
 import CourseModel from '@/models/Course';
 import { verifyAttendanceLocation } from '@/ai/flows/attendance-location-verification';
-import { MOCK_COURSES } from '@/lib/mock-data'; // Using this for class location for now
 
 export async function POST(req: NextRequest) {
   try {
@@ -30,21 +29,17 @@ export async function POST(req: NextRequest) {
     if (course.attendanceCode !== attendanceCode) {
       return NextResponse.json({ message: 'Invalid attendance code' }, { status: 400 });
     }
+    if (course.latitude === undefined || course.longitude === undefined) {
+        return NextResponse.json({ message: 'Lecturer has not set a location for this class yet.' }, { status: 400 });
+    }
 
     // 3. Verify Location using GenAI
-    // For this demo, let's use a fixed "expected" location for the class.
-    // In a real app, this would come from the course or a scheduling system.
-    const EXPECTED_LOCATION = {
-        latitude: 6.0224, // Approx. Oko Poly Main Gate
-        longitude: 7.0700,
-    };
-    
     const verificationInput = {
       studentId: student.identifier,
       latitude,
       longitude,
-      expectedLatitude: EXPECTED_LOCATION.latitude,
-      expectedLongitude: EXPECTED_LOCATION.longitude,
+      expectedLatitude: course.latitude,
+      expectedLongitude: course.longitude,
     };
 
     const verificationResult = await verifyAttendanceLocation(verificationInput);

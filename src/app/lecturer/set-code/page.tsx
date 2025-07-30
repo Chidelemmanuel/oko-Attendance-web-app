@@ -2,7 +2,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useSearchParams } from 'next/navigation';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
@@ -20,46 +19,24 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { KeyRound, Settings2, ShieldCheck, AlertTriangle } from 'lucide-react';
+import { KeyRound, Settings2, ShieldCheck, MapPin, Loader2, AlertTriangle } from 'lucide-react';
 import { MOCK_COURSES } from '@/lib/mock-data';
 
 const setCodeSchema = z.object({
   courseCode: z.string().min(1, { message: 'Please select a course.' }),
   attendanceCode: z.string().min(4, { message: 'Code must be at least 4 characters.' }).max(10, {message: "Code must be at most 10 characters."}),
+  latitude: z.number(),
+  longitude: z.number(),
 });
 
 type SetCodeFormValues = z.infer<typeof setCodeSchema>;
 
-function SetCodeCard({ children, isEnabled }: { children: React.ReactNode, isEnabled: boolean }) {
-    if (!isEnabled) {
-        return (
-             <Card className="max-w-2xl mx-auto">
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                        <AlertTriangle className="h-6 w-6 text-destructive" />
-                        Location Not Verified
-                    </CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <p className="text-muted-foreground">
-                        You must verify your location before you can set an attendance code.
-                        Please use the sidebar link to start the verification process.
-                    </p>
-                </CardContent>
-            </Card>
-        );
-    }
-    return <Card className="max-w-2xl mx-auto">{children}</Card>;
-}
-
 export default function SetAttendanceCodePage() {
   const { toast } = useToast();
-  const searchParams = useSearchParams();
   const [isLoading, setIsLoading] = useState(false);
-
-  const verifiedLatitude = searchParams.get('lat');
-  const verifiedLongitude = searchParams.get('lon');
-  const isPageEnabled = !!verifiedLatitude && !!verifiedLongitude;
+  const [isFetchingLocation, setIsFetchingLocation] = useState(true);
+  const [locationError, setLocationError] = useState<string | null>(null);
+  const [currentLocation, setCurrentLocation] = useState<{ latitude: number; longitude: number } | null>(null);
 
   const form = useForm<SetCodeFormValues>({
     resolver: zodResolver(setCodeSchema),
@@ -68,6 +45,33 @@ export default function SetAttendanceCodePage() {
       attendanceCode: '',
     },
   });
+
+  useEffect(() => {
+    if (!navigator.geolocation) {
+      setLocationError('Geolocation is not supported by your browser.');
+      setIsFetchingLocation(false);
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const coords = {
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        };
+        setCurrentLocation(coords);
+        form.setValue('latitude', coords.latitude);
+        form.setValue('longitude', coords.longitude);
+        setLocationError(null);
+        setIsFetchingLocation(false);
+      },
+      (error) => {
+        setLocationError(`Error getting location: ${error.message}. Please enable location services.`);
+        setIsFetchingLocation(false);
+      }
+    );
+  }, [form]);
+
 
   async function onSubmit(data: SetCodeFormValues) {
     setIsLoading(true);
@@ -90,7 +94,7 @@ export default function SetAttendanceCodePage() {
         title: 'Attendance Code Set',
         description: `Code "${data.attendanceCode}" has been set for ${result.course.name}.`,
       });
-      form.reset();
+      form.reset({ courseCode: '', attendanceCode: ''});
 
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred.';
@@ -103,15 +107,50 @@ export default function SetAttendanceCodePage() {
       setIsLoading(false);
     }
   }
+  
+  const isFormEnabled = !isFetchingLocation && !locationError;
+
+  const renderLocationStatus = () => {
+    if (isFetchingLocation) {
+        return (
+             <div className="flex items-center gap-2 p-2 border rounded-md bg-muted text-muted-foreground">
+                <Loader2 className="h-5 w-5 animate-spin" />
+                <p className="font-semibold">Acquiring your location...</p>
+            </div>
+        )
+    }
+    if (locationError) {
+         return (
+             <div className="flex items-center gap-2 p-2 border rounded-md bg-destructive/10 text-destructive">
+                <AlertTriangle className="h-5 w-5" />
+                <p className="font-semibold">{locationError}</p>
+            </div>
+        )
+    }
+     if (currentLocation) {
+        return (
+             <div className="flex items-center gap-2 p-2 border rounded-md bg-muted">
+                <ShieldCheck className="h-5 w-5 text-green-600" />
+                <div className="flex-1">
+                    <p className="font-semibold text-green-700">Location Captured</p>
+                    <p className="text-sm text-muted-foreground">
+                        Lat: {currentLocation.latitude.toFixed(4)}, Lon: {currentLocation.longitude.toFixed(4)}
+                    </p>
+                </div>
+            </div>
+        )
+    }
+    return null;
+  }
 
   return (
-    <SetCodeCard isEnabled={isPageEnabled}>
+    <Card className="max-w-2xl mx-auto">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
             <KeyRound className="h-6 w-6 text-primary" /> Set Attendance Code
         </CardTitle>
         <CardDescription>
-          Your location has been verified. Set a unique code for students to use for a specific course session.
+          Your current location will be captured automatically. Set a unique code for students to use for this session.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -123,7 +162,7 @@ export default function SetAttendanceCodePage() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Course</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!isPageEnabled}>
+                  <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!isFormEnabled}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Select a course" />
@@ -149,7 +188,7 @@ export default function SetAttendanceCodePage() {
                 <FormItem>
                   <FormLabel>Attendance Code</FormLabel>
                   <FormControl>
-                    <Input placeholder="e.g., CS211NOW" {...field} disabled={!isPageEnabled} />
+                    <Input placeholder="e.g., CS211NOW" {...field} disabled={!isFormEnabled} />
                   </FormControl>
                   <FormDescription>
                     Students will need to enter this exact code to mark their attendance.
@@ -159,25 +198,15 @@ export default function SetAttendanceCodePage() {
               )}
             />
 
-            <div className="flex items-center gap-2 p-2 border rounded-md bg-muted">
-                <ShieldCheck className="h-5 w-5 text-green-600" />
-                <div className="flex-1">
-                    <p className="font-semibold text-green-700">Location Verified</p>
-                    {isPageEnabled && (
-                        <p className="text-sm text-muted-foreground">
-                            Lat: {parseFloat(verifiedLatitude).toFixed(4)}, Lon: {parseFloat(verifiedLongitude).toFixed(4)}
-                        </p>
-                    )}
-                </div>
-            </div>
+            {renderLocationStatus()}
 
-            <Button type="submit" className="w-full" disabled={isLoading || !isPageEnabled}>
+            <Button type="submit" className="w-full" disabled={isLoading || !isFormEnabled}>
               {isLoading ? 'Setting Code...' : 'Set Code'}
               <Settings2 className="ml-2 h-4 w-4" />
             </Button>
           </form>
         </Form>
       </CardContent>
-    </SetCodeCard>
+    </Card>
   );
 }
