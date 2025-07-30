@@ -7,62 +7,52 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   const publicPaths = ['/', '/auth/student/login', '/auth/student/signup', '/auth/lecturer/login', '/auth/lecturer/signup'];
+  const isPublicPath = publicPaths.includes(pathname);
 
-  // If the path is public, let them through
-  if (publicPaths.includes(pathname)) {
-    // If they are logged in and try to access a public auth page, redirect to dashboard
-    if (token) {
-        const decodedToken = await verifyJwt(token);
-        if (decodedToken) {
-            return NextResponse.redirect(new URL('/dashboard', request.url));
-        }
-    }
-    return NextResponse.next();
-  }
-
-  // If there's no token and the path is not public, redirect to the main portal page
-  if (!token) {
-    return NextResponse.redirect(new URL('/', request.url));
-  }
-
-  // Verify the token for protected routes
-  try {
+  // If the user is logged in
+  if (token) {
     const decodedToken = await verifyJwt(token);
-    if (!decodedToken || typeof decodedToken.role !== 'string') {
-        // Invalid token, redirect to login
+    // If the token is valid and they are trying to access a public page (like login), redirect to dashboard
+    if (decodedToken && isPublicPath) {
+      return NextResponse.redirect(new URL('/dashboard', request.url));
+    }
+    // If the token is invalid, clear it and redirect to home
+    if (!decodedToken && !isPublicPath) {
         const response = NextResponse.redirect(new URL('/', request.url));
         response.cookies.delete('auth_token');
         return response;
     }
-    
-    // Role-based access control
-    const { role } = decodedToken;
-    
-    if (pathname.startsWith('/lecturer') && role !== 'lecturer') {
-         return NextResponse.redirect(new URL('/dashboard', request.url));
+
+     // Role-based access control for logged-in users
+    if(decodedToken && typeof decodedToken.role === 'string') {
+        const { role } = decodedToken;
+        
+        if (pathname.startsWith('/lecturer') && role !== 'lecturer') {
+            return NextResponse.redirect(new URL('/dashboard', request.url));
+        }
+
+        if (pathname.startsWith('/attendance/submit') && role !== 'student') {
+            return NextResponse.redirect(new URL('/dashboard', request.url));
+        }
+        
+        if (pathname.startsWith('/students') && role !== 'lecturer') {
+            return NextResponse.redirect(new URL('/dashboard', request.url));
+        }
+        
+        if (pathname.startsWith('/tools') && role !== 'lecturer') {
+            return NextResponse.redirect(new URL('/dashboard', request.url));
+        }
     }
 
-    if (pathname.startsWith('/attendance/submit') && role !== 'student') {
-        return NextResponse.redirect(new URL('/dashboard', request.url));
-    }
-    
-    if (pathname.startsWith('/students') && role !== 'lecturer') {
-        return NextResponse.redirect(new URL('/dashboard', request.url));
-    }
-    
-    if (pathname.startsWith('/tools') && role !== 'lecturer') {
-        return NextResponse.redirect(new URL('/dashboard', request.url));
-    }
 
-    return NextResponse.next();
-
-  } catch (error) {
-    // Error verifying token, clear it and redirect to login
-    console.error("Middleware token verification error:", error);
-    const response = NextResponse.redirect(new URL('/', request.url));
-    response.cookies.delete('auth_token');
-    return response;
+  } else {
+    // If there's no token and they are trying to access a protected page, redirect to home
+    if (!isPublicPath) {
+      return NextResponse.redirect(new URL('/', request.url));
+    }
   }
+
+  return NextResponse.next();
 }
 
 export const config = {
