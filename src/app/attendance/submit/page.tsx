@@ -2,6 +2,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
@@ -19,27 +20,49 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, MapPin, ShieldCheck, Send, KeyRound, User } from 'lucide-react';
+import { Loader2, ShieldCheck, Send, KeyRound, User, AlertTriangle } from 'lucide-react';
 import { MOCK_COURSES } from '@/lib/mock-data';
 
 const attendanceSubmissionSchema = z.object({
   studentId: z.string().min(1, { message: 'Student ID is required.' }),
   courseCode: z.string().min(1, { message: 'Course code is required.' }),
   attendanceCode: z.string().min(1, { message: 'Attendance code is required.' }),
-  latitude: z.number({ required_error: "Location is required." }),
-  longitude: z.number({ required_error: "Location is required." }),
+  latitude: z.number({ required_error: "Verified location is required." }),
+  longitude: z.number({ required_error: "Verified location is required." }),
 });
 
 type AttendanceFormValues = z.infer<typeof attendanceSubmissionSchema>;
 
+function AttendanceCard({ children, isEnabled }: { children: React.ReactNode, isEnabled: boolean }) {
+    if (!isEnabled) {
+        return (
+             <Card className="max-w-2xl mx-auto">
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                        <AlertTriangle className="h-6 w-6 text-destructive" />
+                        Location Not Verified
+                    </CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <p className="text-muted-foreground">
+                        You must verify your location before you can submit attendance.
+                        Please go back to the dashboard and click "Submit Attendance" to start the verification process.
+                    </p>
+                </CardContent>
+            </Card>
+        );
+    }
+    return <Card className="max-w-2xl mx-auto">{children}</Card>;
+}
+
 export default function SubmitAttendancePage() {
   const { toast } = useToast();
+  const searchParams = useSearchParams();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [location, setLocation] = useState<{ latitude: number; longitude: number } | null>(null);
-  const [locationError, setLocationError] = useState<string | null>(null);
-  const [isFetchingLocation, setIsFetchingLocation] = useState(false);
   const [studentInfo, setStudentInfo] = useState<{ id: string | null, fullName: string | null }>({ id: null, fullName: null });
-
+  
+  const verifiedLatitude = searchParams.get('lat');
+  const verifiedLongitude = searchParams.get('lon');
 
   const form = useForm<AttendanceFormValues>({
     resolver: zodResolver(attendanceSubmissionSchema),
@@ -47,6 +70,8 @@ export default function SubmitAttendancePage() {
       studentId: '',
       courseCode: '',
       attendanceCode: '',
+      latitude: verifiedLatitude ? parseFloat(verifiedLatitude) : undefined,
+      longitude: verifiedLongitude ? parseFloat(verifiedLongitude) : undefined,
     },
   });
 
@@ -62,38 +87,16 @@ export default function SubmitAttendancePage() {
   }, [form]);
 
   useEffect(() => {
-    if (location) {
-      form.setValue('latitude', location.latitude);
-      form.setValue('longitude', location.longitude);
-      form.clearErrors('latitude');
+    const lat = searchParams.get('lat');
+    const lon = searchParams.get('lon');
+    if (lat && lon) {
+        form.setValue('latitude', parseFloat(lat));
+        form.setValue('longitude', parseFloat(lon));
+        form.clearErrors('latitude');
+        form.clearErrors('longitude');
     }
-  }, [location, form]);
+  }, [searchParams, form]);
 
-  const handleGetLocation = () => {
-    if (!navigator.geolocation) {
-      setLocationError('Geolocation is not supported by your browser.');
-      toast({ variant: "destructive", title: "Location Error", description: "Geolocation is not supported." });
-      return;
-    }
-
-    setIsFetchingLocation(true);
-    setLocationError(null);
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setLocation({
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-        });
-        setIsFetchingLocation(false);
-        toast({ title: "Location Acquired", description: "Your current location has been recorded." });
-      },
-      (error) => {
-        setLocationError(`Error getting location: ${error.message}`);
-        toast({ variant: "destructive", title: "Location Error", description: `Could not get location: ${error.message}` });
-        setIsFetchingLocation(false);
-      }
-    );
-  };
 
   async function onSubmit(data: AttendanceFormValues) {
     setIsSubmitting(true);
@@ -119,8 +122,6 @@ export default function SubmitAttendancePage() {
             courseCode: '', 
             attendanceCode: ''
         });
-        setLocation(null);
-        setLocationError(null);
 
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred.';
@@ -134,12 +135,14 @@ export default function SubmitAttendancePage() {
     }
   }
 
+  const isPageEnabled = !!verifiedLatitude && !!verifiedLongitude;
+
   return (
-    <Card className="max-w-2xl mx-auto">
+    <AttendanceCard isEnabled={isPageEnabled}>
       <CardHeader>
         <CardTitle>Submit Attendance</CardTitle>
         <CardDescription>
-          Mark your attendance for a course. Ensure your location services are enabled and you have the attendance code.
+          Your location has been verified. Please select your course and enter the attendance code provided by your lecturer.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -170,7 +173,7 @@ export default function SubmitAttendancePage() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Course</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!isPageEnabled}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Select a course" />
@@ -199,7 +202,7 @@ export default function SubmitAttendancePage() {
                     Attendance Code
                   </FormLabel>
                   <FormControl>
-                    <Input placeholder="Enter code from lecturer" {...field} />
+                    <Input placeholder="Enter code from lecturer" {...field} disabled={!isPageEnabled}/>
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -207,44 +210,26 @@ export default function SubmitAttendancePage() {
             />
 
             <FormItem>
-              <FormLabel>Location</FormLabel>
-              <div className="flex items-center gap-4">
-                <Button type="button" variant="outline" onClick={handleGetLocation} disabled={isFetchingLocation}>
-                  {isFetchingLocation ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <MapPin className="mr-2 h-4 w-4" />
-                  )}
-                  {location ? 'Refresh Location' : 'Get Current Location'}
-                </Button>
-                {location && (
-                  <p className="text-sm text-muted-foreground">
-                    Lat: {location.latitude.toFixed(4)}, Lon: {location.longitude.toFixed(4)}
-                  </p>
-                )}
-              </div>
-              {locationError && <p className="text-sm font-medium text-destructive">{locationError}</p>}
-               <FormDescription>
-                Your location will be used to verify on-site presence.
-              </FormDescription>
-               <FormField
-                control={form.control}
-                name="latitude"
-                render={() => <FormMessage />}
-              />
-            </FormItem>
-            
-            <div className="flex items-center p-3 border rounded-md bg-secondary/50">
-                <ShieldCheck className="h-6 w-6 mr-3 text-primary" />
-                <div>
-                    <p className="text-sm font-medium">Secure Submission</p>
-                    <p className="text-xs text-muted-foreground">
-                        Your attendance is submitted securely and location is verified using GenAI.
-                    </p>
+                <FormLabel>Verified Location</FormLabel>
+                <div className="flex items-center gap-2 p-2 border rounded-md bg-muted">
+                    <ShieldCheck className="h-5 w-5 text-green-600" />
+                    <div className="flex-1">
+                        <p className="font-semibold text-green-700">Location Verified</p>
+                        {isPageEnabled && (
+                            <p className="text-sm text-muted-foreground">
+                                Lat: {parseFloat(verifiedLatitude).toFixed(4)}, Lon: {parseFloat(verifiedLongitude).toFixed(4)}
+                            </p>
+                        )}
+                    </div>
                 </div>
-            </div>
+                <FormField
+                    control={form.control}
+                    name="latitude"
+                    render={() => <FormMessage />}
+                />
+            </FormItem>
 
-            <Button type="submit" className="w-full" disabled={isSubmitting || !location || !studentInfo.id}>
+            <Button type="submit" className="w-full" disabled={isSubmitting || !isPageEnabled || !studentInfo.id}>
               {isSubmitting ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (
@@ -255,6 +240,6 @@ export default function SubmitAttendancePage() {
           </form>
         </Form>
       </CardContent>
-    </Card>
+    </AttendanceCard>
   );
 }

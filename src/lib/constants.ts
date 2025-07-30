@@ -23,7 +23,7 @@ export const NAV_ITEMS: NavItem[] = [
     roles: ['lecturer'], // Only lecturers can see the full student list
   },
   {
-    href: '/attendance/submit',
+    href: '/tools/location-verifier',
     label: 'Submit Attendance',
     icon: ClipboardCheck,
     roles: ['student'],
@@ -38,7 +38,7 @@ export const NAV_ITEMS: NavItem[] = [
     href: '/tools/location-verifier',
     label: 'Location Verifier',
     icon: MapPin,
-    roles: ['lecturer'], // Maybe only lecturers need this tool
+    roles: ['student', 'lecturer'], 
   },
 ];
 

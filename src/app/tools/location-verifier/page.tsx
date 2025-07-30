@@ -1,56 +1,81 @@
+
 'use client';
 
-import { useState } from 'react';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { useForm } from 'react-hook-form';
-import * as z from 'zod';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Compass, Sparkles, Percent } from 'lucide-react';
+import { Loader2, Compass, Sparkles, AlertTriangle, MapPin } from 'lucide-react';
 import { verifyLocationAction } from './actions';
 import type { VerifyAttendanceLocationOutput } from '@/ai/flows/attendance-location-verification';
 
-const locationVerifierSchema = z.object({
-  studentId: z.string().min(1, { message: 'Student ID is required.' }),
-  latitude: z.coerce.number().min(-90).max(90, { message: 'Latitude must be between -90 and 90.' }),
-  longitude: z.coerce.number().min(-180).max(180, { message: 'Longitude must be between -180 and 180.' }),
-  expectedLatitude: z.coerce.number().min(-90).max(90, { message: 'Expected latitude must be between -90 and 90.' }),
-  expectedLongitude: z.coerce.number().min(-180).max(180, { message: 'Expected longitude must be between -180 and 180.' }),
-});
-
-type LocationVerifierFormValues = z.infer<typeof locationVerifierSchema>;
+// Using a fixed location for the school gate for verification purposes
+const EXPECTED_LOCATION = {
+    latitude: 6.0224, // Approx. Oko Poly Main Gate
+    longitude: 7.0700,
+};
 
 export default function LocationVerifierPage() {
   const { toast } = useToast();
+  const router = useRouter();
   const [isVerifying, setIsVerifying] = useState(false);
+  const [isFetchingLocation, setIsFetchingLocation] = useState(true);
   const [verificationResult, setVerificationResult] = useState<VerifyAttendanceLocationOutput | null>(null);
+  const [currentLocation, setCurrentLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [locationError, setLocationError] = useState<string | null>(null);
+  const [studentId, setStudentId] = useState<string | null>(null);
+  
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+        const id = localStorage.getItem('userIdentifier');
+        setStudentId(id);
+    }
+  }, []);
 
-  const form = useForm<LocationVerifierFormValues>({
-    resolver: zodResolver(locationVerifierSchema),
-    defaultValues: {
-      studentId: 'FPO/TEST/001',
-      latitude: 6.0224, // Oko Poly Gate approx.
-      longitude: 7.0700,
-      expectedLatitude: 6.0224,
-      expectedLongitude: 7.0700,
-    },
-  });
+  useEffect(() => {
+    if (!navigator.geolocation) {
+      setLocationError('Geolocation is not supported by your browser.');
+      setIsFetchingLocation(false);
+      return;
+    }
 
-  async function onSubmit(data: LocationVerifierFormValues) {
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setCurrentLocation({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        });
+        setLocationError(null);
+        setIsFetchingLocation(false);
+      },
+      (error) => {
+        setLocationError(`Error getting location: ${error.message}. Please enable location services.`);
+        setIsFetchingLocation(false);
+      }
+    );
+  }, []);
+
+  async function handleVerification() {
+    if (!currentLocation || !studentId) {
+        toast({
+            variant: 'destructive',
+            title: 'Verification Failed',
+            description: 'Could not get your current location or student ID. Please try again.',
+        });
+        return;
+    }
+
     setIsVerifying(true);
     setVerificationResult(null);
-    const result = await verifyLocationAction(data);
+
+    const result = await verifyLocationAction({
+        studentId: studentId,
+        latitude: currentLocation.latitude,
+        longitude: currentLocation.longitude,
+        expectedLatitude: EXPECTED_LOCATION.latitude,
+        expectedLongitude: EXPECTED_LOCATION.longitude
+    });
     
     if ('error' in result) {
       toast({
@@ -58,116 +83,89 @@ export default function LocationVerifierPage() {
         title: 'Verification Failed',
         description: result.error,
       });
+      setIsVerifying(false);
     } else {
       setVerificationResult(result);
-      toast({
-        title: 'Verification Complete',
-        description: `Probabilistic score: ${(result.isOnSiteProbability * 100).toFixed(0)}%`,
-      });
+      if (result.isOnSiteProbability > 0.5) { // Threshold for allowing submission
+         toast({
+            title: 'Verification Successful!',
+            description: `You can now proceed to submit your attendance.`,
+         });
+         router.push(`/attendance/submit?lat=${currentLocation.latitude}&lon=${currentLocation.longitude}`);
+      } else {
+         toast({
+            variant: 'destructive',
+            title: 'Verification Failed',
+            description: `AI determined you are not on-site. Probability: ${(result.isOnSiteProbability * 100).toFixed(0)}%. You cannot submit attendance.`,
+         });
+         setIsVerifying(false);
+      }
     }
-    setIsVerifying(false);
+  }
+
+  const renderStatus = () => {
+    if (isFetchingLocation) {
+        return (
+            <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                <Loader2 className="h-8 w-8 animate-spin text-primary"/>
+                <p>Acquiring your location...</p>
+            </div>
+        );
+    }
+    if (locationError) {
+        return (
+            <div className="flex flex-col items-center gap-2 text-destructive">
+                <AlertTriangle className="h-8 w-8" />
+                <p className="text-center">{locationError}</p>
+            </div>
+        )
+    }
+    if (currentLocation) {
+        return (
+            <div className="flex flex-col items-center gap-4">
+                 <div className="flex items-center gap-2 p-3 border rounded-lg bg-secondary/50 w-full">
+                    <MapPin className="h-6 w-6 text-primary" />
+                    <div>
+                        <p className="text-sm font-medium">Your Current Location</p>
+                        <p className="text-xs text-muted-foreground">
+                           Lat: {currentLocation.latitude.toFixed(4)}, Lon: {currentLocation.longitude.toFixed(4)}
+                        </p>
+                    </div>
+                </div>
+                 <Button onClick={handleVerification} className="w-full" disabled={isVerifying}>
+                    {isVerifying ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                    <Compass className="mr-2 h-4 w-4" />
+                    )}
+                    Verify & Proceed to Submit Attendance
+                </Button>
+            </div>
+        )
+    }
+    return null;
   }
 
   return (
     <div className="space-y-6">
-      <Card>
+      <Card className="max-w-2xl mx-auto">
         <CardHeader>
-          <CardTitle>AI Location Verifier</CardTitle>
+          <CardTitle>Step 1: Location Verification</CardTitle>
           <CardDescription>
-            Test the AI-powered location verification. Enter submitted and expected coordinates to get a probabilistic on-site score.
+            Before submitting attendance, we must verify you are on-site using AI. 
+            Your location will be checked against the school's known coordinates.
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              <FormField
-                control={form.control}
-                name="studentId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Student ID</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Enter student ID" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <div className="grid md:grid-cols-2 gap-6">
-                <FormField
-                  control={form.control}
-                  name="latitude"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Submitted Latitude</FormLabel>
-                      <FormControl>
-                        <Input type="number" step="any" placeholder="e.g., 6.0224" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="longitude"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Submitted Longitude</FormLabel>
-                      <FormControl>
-                        <Input type="number" step="any" placeholder="e.g., 7.0700" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-              <div className="grid md:grid-cols-2 gap-6">
-                <FormField
-                  control={form.control}
-                  name="expectedLatitude"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Expected Latitude (Class Location)</FormLabel>
-                      <FormControl>
-                        <Input type="number" step="any" placeholder="e.g., 6.0220" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="expectedLongitude"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Expected Longitude (Class Location)</FormLabel>
-                      <FormControl>
-                        <Input type="number" step="any" placeholder="e.g., 7.0705" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-              <Button type="submit" className="w-full" disabled={isVerifying}>
-                {isVerifying ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <Compass className="mr-2 h-4 w-4" />
-                )}
-                Verify Location
-              </Button>
-            </form>
-          </Form>
+        <CardContent className="flex justify-center items-center min-h-[150px]">
+            {renderStatus()}
         </CardContent>
       </Card>
-
-      {verificationResult && (
-        <Card>
+      {verificationResult && !isVerifying && (
+         <Card className="max-w-2xl mx-auto">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-primary" />
-              Verification Result
+              Last Verification Result
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -178,7 +176,6 @@ export default function LocationVerifierPage() {
                         {(verificationResult.isOnSiteProbability * 100).toFixed(0)}%
                     </p>
                 </div>
-                <Percent className="h-10 w-10 text-primary" />
             </div>
             
             {verificationResult.reasoning && (
