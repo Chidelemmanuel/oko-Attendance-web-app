@@ -60,8 +60,8 @@ export default function LecturerLoginPage() {
         title: 'Login Successful',
         description: `Welcome back, ${result.user.fullName}!`,
       });
-      // In a real app, you'd store the token (result.token)
-      router.push('/lecturer/set-code');
+      router.push('/dashboard');
+      router.refresh();
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred.';
       toast({
@@ -121,6 +121,11 @@ export default function LecturerLoginPage() {
             Don&apos;t have an account?{' '}
             <Link href="/auth/lecturer/signup" className="font-medium text-primary hover:underline">
               Sign up
+            </Link>
+          </p>
+           <p className="mt-4 text-center text-sm text-muted-foreground">
+            <Link href="/" className="font-medium text-primary hover:underline">
+              &larr; Back to main portal
             </Link>
           </p>
         </CardContent>

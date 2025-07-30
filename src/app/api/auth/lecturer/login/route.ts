@@ -3,6 +3,7 @@ import dbConnect from '@/lib/mongodb';
 import UserModel from '@/models/User';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import { cookies } from 'next/headers';
 
 export async function POST(req: NextRequest) {
   try {
@@ -25,16 +26,23 @@ export async function POST(req: NextRequest) {
     }
 
     const token = jwt.sign(
-      { userId: user._id, role: user.role, identifier: user.identifier },
+      { userId: user._id, role: user.role, identifier: user.identifier, fullName: user.fullName },
       process.env.JWT_SECRET || 'your_default_jwt_secret',
       { expiresIn: '1d' }
     );
+    
+    cookies().set('auth_token', token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV !== 'development',
+        maxAge: 60 * 60 * 24, // 1 day
+        path: '/',
+        sameSite: 'lax',
+    });
 
     const { password: _, ...userWithoutPassword } = user.toObject();
 
     return NextResponse.json({
       message: 'Login successful',
-      token,
       user: userWithoutPassword,
     }, { status: 200 });
 

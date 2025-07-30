@@ -6,39 +6,40 @@ export type NavItem = {
   label: string;
   icon: LucideIcon;
   matchSegments?: string[]; // For highlighting active link based on path segments
+  roles?: ('student' | 'lecturer')[]; // Role-based access control
 };
 
 export const NAV_ITEMS: NavItem[] = [
   {
-    href: '/',
+    href: '/dashboard',
     label: 'Dashboard',
     icon: LayoutDashboard,
-    matchSegments: [''], // Matches root path
+    roles: ['student', 'lecturer'],
   },
   {
     href: '/students',
     label: 'Students',
     icon: Users,
-    matchSegments: ['students'],
+    roles: ['lecturer'], // Only lecturers can see the full student list
   },
   {
     href: '/attendance/submit',
     label: 'Submit Attendance',
     icon: ClipboardCheck,
-    matchSegments: ['attendance', 'submit'],
+    roles: ['student'],
+  },
+   {
+    href: '/lecturer/set-code',
+    label: 'Set Attendance Code',
+    icon: KeyRound,
+    roles: ['lecturer'],
   },
   {
     href: '/tools/location-verifier',
     label: 'Location Verifier',
     icon: MapPin,
-    matchSegments: ['tools', 'location-verifier'],
+    roles: ['lecturer'], // Maybe only lecturers need this tool
   },
-  {
-    href: '/lecturer/set-code',
-    label: 'Set Attendance Code',
-    icon: KeyRound,
-    matchSegments: ['lecturer', 'set-code'],
-  }
 ];
 
 export type Student = {

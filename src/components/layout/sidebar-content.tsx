@@ -1,7 +1,8 @@
+
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   SidebarHeader,
   SidebarContent as UiSidebarContent,
@@ -16,23 +17,40 @@ import { NAV_ITEMS } from '@/lib/constants';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { LogOut } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 export function SidebarContent() {
   const pathname = usePathname();
+  const router = useRouter();
+  const { toast } = useToast();
 
   const isActive = (href: string, matchSegments?: string[]) => {
-    if (href === '/') return pathname === '/';
+    if (href === '/dashboard') return pathname === '/dashboard';
     if (matchSegments) {
       const currentSegments = pathname.split('/').filter(Boolean);
       return matchSegments.every((segment, index) => currentSegments[index] === segment);
     }
     return pathname.startsWith(href);
   };
+  
+  const handleLogout = async () => {
+    try {
+        const res = await fetch('/api/auth/logout', { method: 'POST' });
+        if(!res.ok) throw new Error("Logout failed");
+
+        toast({ title: 'Logged out successfully' });
+        router.push('/');
+        router.refresh();
+
+    } catch(error) {
+        toast({ variant: 'destructive', title: 'Logout failed', description: 'Could not log you out. Please try again.' });
+    }
+  }
 
   return (
     <>
       <SidebarHeader className="p-4">
-        <Link href="/" className="flex items-center gap-2">
+        <Link href="/dashboard" className="flex items-center gap-2">
           <Logo className="h-8 w-8 text-primary" />
           <h1 className="text-xl font-semibold text-foreground group-data-[collapsible=icon]:hidden">
             OkoAttend
@@ -65,7 +83,7 @@ export function SidebarContent() {
       </UiSidebarContent>
       <SidebarSeparator />
       <SidebarFooter className="p-4">
-        <Button variant="ghost" className="w-full justify-start gap-2 group-data-[collapsible=icon]:justify-center">
+        <Button variant="ghost" className="w-full justify-start gap-2 group-data-[collapsible=icon]:justify-center" onClick={handleLogout}>
           <LogOut className="h-5 w-5" />
           <span className="group-data-[collapsible=icon]:hidden">Logout</span>
         </Button>

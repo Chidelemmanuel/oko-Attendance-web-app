@@ -170,6 +170,11 @@ export default function StudentSignupPage() {
               Login
             </Link>
           </p>
+           <p className="mt-4 text-center text-sm text-muted-foreground">
+            <Link href="/" className="font-medium text-primary hover:underline">
+              &larr; Back to main portal
+            </Link>
+          </p>
         </CardContent>
       </Card>
     </div>
