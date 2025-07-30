@@ -25,8 +25,8 @@ import { MOCK_COURSES } from '@/lib/mock-data';
 const setCodeSchema = z.object({
   courseCode: z.string().min(1, { message: 'Please select a course.' }),
   attendanceCode: z.string().min(4, { message: 'Code must be at least 4 characters.' }).max(10, {message: "Code must be at most 10 characters."}),
-  latitude: z.number(),
-  longitude: z.number(),
+  latitude: z.number({ required_error: 'Location is required.'}),
+  longitude: z.number({ required_error: 'Location is required.'}),
 });
 
 type SetCodeFormValues = z.infer<typeof setCodeSchema>;
@@ -68,7 +68,8 @@ export default function SetAttendanceCodePage() {
       (error) => {
         setLocationError(`Error getting location: ${error.message}. Please enable location services.`);
         setIsFetchingLocation(false);
-      }
+      },
+      { enableHighAccuracy: true }
     );
   }, [form]);
 
@@ -92,9 +93,9 @@ export default function SetAttendanceCodePage() {
       
       toast({
         title: 'Attendance Code Set',
-        description: `Code "${data.attendanceCode}" has been set for ${result.course.name}.`,
+        description: `Code "${data.attendanceCode}" for ${result.course.name} is now active.`,
       });
-      form.reset({ courseCode: '', attendanceCode: ''});
+      form.reset({ courseCode: data.courseCode, attendanceCode: ''});
 
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred.';
@@ -132,7 +133,7 @@ export default function SetAttendanceCodePage() {
              <div className="flex items-center gap-2 p-2 border rounded-md bg-muted">
                 <ShieldCheck className="h-5 w-5 text-green-600" />
                 <div className="flex-1">
-                    <p className="font-semibold text-green-700">Location Captured</p>
+                    <p className="font-semibold text-green-700">Location Captured and Ready</p>
                     <p className="text-sm text-muted-foreground">
                         Lat: {currentLocation.latitude.toFixed(4)}, Lon: {currentLocation.longitude.toFixed(4)}
                     </p>
@@ -150,7 +151,7 @@ export default function SetAttendanceCodePage() {
             <KeyRound className="h-6 w-6 text-primary" /> Set Attendance Code
         </CardTitle>
         <CardDescription>
-          Your current location will be captured automatically. Set a unique code for students to use for this session.
+          Your current location will be captured and saved for this class session. Set a unique code for students to use.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -201,7 +202,7 @@ export default function SetAttendanceCodePage() {
             {renderLocationStatus()}
 
             <Button type="submit" className="w-full" disabled={isLoading || !isFormEnabled}>
-              {isLoading ? 'Setting Code...' : 'Set Code'}
+              {isLoading ? 'Setting Code...' : 'Set Code & Activate Class'}
               <Settings2 className="ml-2 h-4 w-4" />
             </Button>
           </form>
