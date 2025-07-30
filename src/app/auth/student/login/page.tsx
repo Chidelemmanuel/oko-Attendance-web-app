@@ -55,6 +55,11 @@ export default function StudentLoginPage() {
       if (!res.ok) {
         throw new Error(result.message || 'Something went wrong');
       }
+      
+      // Store user role in localStorage
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('userRole', result.user.role);
+      }
 
       toast({
         title: 'Login Successful',

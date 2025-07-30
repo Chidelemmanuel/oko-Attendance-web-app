@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
@@ -28,7 +28,7 @@ import { Badge } from '@/components/ui/badge';
 import { getStudentById, getAttendanceByStudentId, MOCK_STUDENTS } from '@/lib/mock-data';
 import type { Student, AttendanceRecord, AttendanceStatus } from '@/lib/constants';
 import { ATTENDANCE_STATUS_ICON_MAP } from '@/lib/constants';
-import { Search, User, CalendarDays, BookOpen, MapPin, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
+import { Search, User, CalendarDays, BookOpen, MapPin, CheckCircle, XCircle, AlertCircle, ShieldAlert } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 
 const studentLookupSchema = z.object({
@@ -37,10 +37,34 @@ const studentLookupSchema = z.object({
 
 type StudentLookupFormValues = z.infer<typeof studentLookupSchema>;
 
+function AccessDenied() {
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                    <ShieldAlert className="h-6 w-6 text-destructive" />
+                    Access Denied
+                </CardTitle>
+            </CardHeader>
+            <CardContent>
+                <p className="text-muted-foreground">You do not have permission to view this page. This area is restricted to lecturers only.</p>
+            </CardContent>
+        </Card>
+    )
+}
+
 export default function StudentLookupPage() {
   const [student, setStudent] = useState<Student | null>(null);
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
   const [notFound, setNotFound] = useState(false);
+  const [isLecturer, setIsLecturer] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+        const role = localStorage.getItem('userRole');
+        setIsLecturer(role === 'lecturer');
+    }
+  }, []);
 
   const form = useForm<StudentLookupFormValues>({
     resolver: zodResolver(studentLookupSchema),
@@ -91,6 +115,14 @@ export default function StudentLookupPage() {
     return <IconComponent className={`mr-2 h-4 w-4 ${iconColorClass}`} />;
   };
 
+  if (isLecturer === null) {
+    // Still checking role, you can show a loader here if you want
+    return null;
+  }
+  
+  if (!isLecturer) {
+    return <AccessDenied />;
+  }
 
   return (
     <div className="space-y-6">

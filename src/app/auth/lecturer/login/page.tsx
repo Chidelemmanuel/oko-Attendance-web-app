@@ -56,6 +56,11 @@ export default function LecturerLoginPage() {
         throw new Error(result.message || 'Something went wrong');
       }
 
+      // Store user role in localStorage
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('userRole', result.user.role);
+      }
+
       toast({
         title: 'Login Successful',
         description: `Welcome back, ${result.user.fullName}!`,
