@@ -65,12 +65,19 @@ export default function LocationVerifierPage() {
     setIsVerifying(true);
     setVerificationResult(null);
 
+    // For lecturers using this tool, we verify against their own captured location.
+    // For students, this tool is for testing; the real verification happens on submission
+    // against the lecturer's saved coordinates for that class.
+    const expectedLatitude = user.role === 'lecturer' ? currentLocation.latitude : 6.0224;
+    const expectedLongitude = user.role === 'lecturer' ? currentLocation.longitude : 7.0700;
+
+
     const result = await verifyLocationAction({
         studentId: user.id, // Use generic ID field for verification
         latitude: currentLocation.latitude,
         longitude: currentLocation.longitude,
-        expectedLatitude: 6.0224, // School gate
-        expectedLongitude: 7.0700, // School gate
+        expectedLatitude: expectedLatitude,
+        expectedLongitude: expectedLongitude
     });
     
     if ('error' in result) {
@@ -88,8 +95,13 @@ export default function LocationVerifierPage() {
             description: `You can now proceed.`,
          });
          
-         // This page is now just a tool, not a part of the flow
-         setIsVerifying(false);
+         if (user.role === 'student') {
+             router.push('/attendance/submit');
+         } else if (user.role === 'lecturer') {
+             router.push('/lecturer/set-code');
+         } else {
+            setIsVerifying(false);
+         }
 
 
       } else {
@@ -104,11 +116,20 @@ export default function LocationVerifierPage() {
   }
   
   const getActionInfo = () => {
+    if(user.role === 'lecturer'){
+        return {
+            title: 'Verify Your Location',
+            description: 'Please verify your current location before setting an attendance code. This ensures accuracy.',
+            buttonIcon: KeyRound,
+            buttonText: 'Verify & Proceed to Set Code',
+        }
+    }
+    // Default to student
     return {
-        title: 'AI Location Verifier Tool',
-        description: 'This tool uses AI to verify if a given location is on-site. Your current location is used for the test.',
-        buttonIcon: Compass,
-        buttonText: 'Run Verification Test',
+        title: 'Verify Your Location',
+        description: 'Please verify your current location before submitting attendance. This is a required step.',
+        buttonIcon: ClipboardCheck,
+        buttonText: 'Verify & Proceed to Submit Attendance',
     }
   }
 
