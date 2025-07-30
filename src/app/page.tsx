@@ -5,10 +5,46 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { Users, CheckSquare, MapPin, BarChart3, AlertTriangle, ShieldCheck, ClipboardCheck, UserCheck, Briefcase } from "lucide-react";
-import { OVERALL_STATS } from "@/lib/mock-data";
 import { MonthlyAttendanceChart } from "@/components/charts/monthly-attendance-chart";
+import { useQuery } from "@tanstack/react-query";
+import { DashboardSkeleton } from "@/components/skeletons/dashboard-skeleton";
+
+type DashboardStats = {
+  totalStudents: number;
+  averageAttendance: number;
+  todayPresent: number;
+  flaggedLocations: number;
+};
+
+async function fetchDashboardStats(): Promise<DashboardStats> {
+  const res = await fetch('/api/dashboard/stats');
+  if (!res.ok) {
+    throw new Error('Failed to fetch dashboard stats');
+  }
+  return res.json();
+}
 
 export default function DashboardPage() {
+
+  const { data: stats, isLoading, isError } = useQuery<DashboardStats>({
+    queryKey: ['dashboardStats'],
+    queryFn: fetchDashboardStats,
+  });
+
+  if (isLoading) {
+    return <DashboardSkeleton />;
+  }
+
+  if (isError || !stats) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full text-center">
+        <AlertTriangle className="h-12 w-12 text-destructive mb-4" />
+        <h2 className="text-xl font-semibold">Failed to Load Dashboard</h2>
+        <p className="text-muted-foreground">There was an error fetching the dashboard data. Please try again later.</p>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
@@ -18,7 +54,7 @@ export default function DashboardPage() {
             <Users className="h-5 w-5 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{OVERALL_STATS.totalStudents}</div>
+            <div className="text-2xl font-bold">{stats.totalStudents}</div>
             <p className="text-xs text-muted-foreground">Registered in the system</p>
           </CardContent>
         </Card>
@@ -28,8 +64,8 @@ export default function DashboardPage() {
             <BarChart3 className="h-5 w-5 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{OVERALL_STATS.averageAttendance}%</div>
-            <p className="text-xs text-muted-foreground">Across all courses this month</p>
+            <div className="text-2xl font-bold">{stats.averageAttendance}%</div>
+            <p className="text-xs text-muted-foreground">Across all courses</p>
           </CardContent>
         </Card>
         <Card>
@@ -38,7 +74,7 @@ export default function DashboardPage() {
             <CheckSquare className="h-5 w-5 text-green-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{OVERALL_STATS.todayPresent}</div>
+            <div className="text-2xl font-bold">{stats.todayPresent}</div>
             <p className="text-xs text-muted-foreground">Students marked present today</p>
           </CardContent>
         </Card>
@@ -48,7 +84,7 @@ export default function DashboardPage() {
             <AlertTriangle className="h-5 w-5 text-destructive" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{OVERALL_STATS.flaggedLocations}</div>
+            <div className="text-2xl font-bold">{stats.flaggedLocations}</div>
             <p className="text-xs text-muted-foreground">Attendance records needing review</p>
           </CardContent>
         </Card>
@@ -58,7 +94,7 @@ export default function DashboardPage() {
         <Card className="flex flex-col md:col-span-2">
           <CardHeader>
             <CardTitle>Monthly Attendance Trend</CardTitle>
-            <CardDescription>Attendance percentage over the last 6 months.</CardDescription>
+            <CardDescription>Attendance percentage over the last 6 months (mock data).</CardDescription>
           </CardHeader>
           <CardContent className="flex-1">
             <MonthlyAttendanceChart />
