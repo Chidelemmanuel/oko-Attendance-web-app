@@ -19,8 +19,8 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, MapPin, ShieldCheck, Send, KeyRound } from 'lucide-react';
-import { MOCK_COURSES, MOCK_STUDENTS } from '@/lib/mock-data'; // MOCK_STUDENTS for placeholder ID
+import { Loader2, MapPin, ShieldCheck, Send, KeyRound, User } from 'lucide-react';
+import { MOCK_COURSES } from '@/lib/mock-data';
 
 const attendanceSubmissionSchema = z.object({
   studentId: z.string().min(1, { message: 'Student ID is required.' }),
@@ -38,22 +38,34 @@ export default function SubmitAttendancePage() {
   const [location, setLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [isFetchingLocation, setIsFetchingLocation] = useState(false);
+  const [studentInfo, setStudentInfo] = useState<{ id: string | null, fullName: string | null }>({ id: null, fullName: null });
+
 
   const form = useForm<AttendanceFormValues>({
     resolver: zodResolver(attendanceSubmissionSchema),
     defaultValues: {
-      studentId: MOCK_STUDENTS[0]?.id || '', // Pre-fill with a mock student for demo
+      studentId: '',
       courseCode: '',
       attendanceCode: '',
     },
   });
 
   useEffect(() => {
+    if (typeof window !== 'undefined') {
+        const id = localStorage.getItem('userIdentifier');
+        const fullName = localStorage.getItem('userFullName');
+        setStudentInfo({ id, fullName });
+        if (id) {
+            form.setValue('studentId', id);
+        }
+    }
+  }, [form]);
+
+  useEffect(() => {
     if (location) {
       form.setValue('latitude', location.latitude);
       form.setValue('longitude', location.longitude);
       form.clearErrors('latitude');
-      form.clearErrors('longitude');
     }
   }, [location, form]);
 
@@ -102,7 +114,11 @@ export default function SubmitAttendancePage() {
           title: 'Attendance Submitted',
           description: result.message,
         });
-        form.reset({studentId: data.studentId, courseCode: '', attendanceCode: ''});
+        form.reset({
+            studentId: data.studentId,
+            courseCode: '', 
+            attendanceCode: ''
+        });
         setLocation(null);
         setLocationError(null);
 
@@ -129,19 +145,25 @@ export default function SubmitAttendancePage() {
       <CardContent>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            <FormField
-              control={form.control}
-              name="studentId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Student ID</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Enter your student ID (e.g., FPO/CS/001)" {...field} />
-                  </FormControl>
+            
+            {studentInfo.id && studentInfo.fullName && (
+                 <FormItem>
+                  <FormLabel>Student</FormLabel>
+                   <div className="flex items-center gap-2 p-2 border rounded-md bg-muted">
+                        <User className="h-5 w-5 text-muted-foreground" />
+                        <div className="flex-1">
+                            <p className="font-semibold">{studentInfo.fullName}</p>
+                            <p className="text-sm text-muted-foreground">{studentInfo.id}</p>
+                        </div>
+                   </div>
+                   <FormControl>
+                        {/* Hidden input to hold the value for the form */}
+                        <Input type="hidden" {...form.register('studentId')} />
+                   </FormControl>
                   <FormMessage />
                 </FormItem>
-              )}
-            />
+            )}
+
             <FormField
               control={form.control}
               name="courseCode"
@@ -222,7 +244,7 @@ export default function SubmitAttendancePage() {
                 </div>
             </div>
 
-            <Button type="submit" className="w-full" disabled={isSubmitting || !location}>
+            <Button type="submit" className="w-full" disabled={isSubmitting || !location || !studentInfo.id}>
               {isSubmitting ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (

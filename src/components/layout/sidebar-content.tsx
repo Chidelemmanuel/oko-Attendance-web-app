@@ -13,16 +13,26 @@ import {
   SidebarSeparator,
 } from '@/components/ui/sidebar';
 import { Logo } from '@/components/icons/logo';
-import { NAV_ITEMS } from '@/lib/constants';
+import { NAV_ITEMS, type NavItem } from '@/lib/constants';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { LogOut } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useEffect, useState } from 'react';
 
 export function SidebarContent() {
   const pathname = usePathname();
   const router = useRouter();
   const { toast } = useToast();
+  const [userRole, setUserRole] = useState<string | null>(null);
+  
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+        const role = localStorage.getItem('userRole');
+        setUserRole(role);
+    }
+  }, [pathname]);
+
 
   const isActive = (href: string, matchSegments?: string[]) => {
     if (href === '/dashboard') return pathname === '/dashboard';
@@ -37,6 +47,13 @@ export function SidebarContent() {
     try {
         const res = await fetch('/api/auth/logout', { method: 'POST' });
         if(!res.ok) throw new Error("Logout failed");
+        
+        if (typeof window !== 'undefined') {
+            localStorage.removeItem('userRole');
+            localStorage.removeItem('userId');
+            localStorage.removeItem('userFullName');
+            localStorage.removeItem('userIdentifier');
+        }
 
         toast({ title: 'Logged out successfully' });
         router.push('/');
@@ -46,6 +63,10 @@ export function SidebarContent() {
         toast({ variant: 'destructive', title: 'Logout failed', description: 'Could not log you out. Please try again.' });
     }
   }
+
+  const visibleNavItems = NAV_ITEMS.filter(item => 
+    !item.roles || (userRole && item.roles.includes(userRole as 'student' | 'lecturer'))
+  );
 
   return (
     <>
@@ -59,11 +80,11 @@ export function SidebarContent() {
       </SidebarHeader>
       <UiSidebarContent className="flex-1 px-2">
         <SidebarMenu>
-          {NAV_ITEMS.map((item) => (
+          {visibleNavItems.map((item) => (
             <SidebarMenuItem key={item.label}>
               <Link href={item.href} passHref legacyBehavior>
                 <SidebarMenuButton
-                  asChild={false} // Important: asChild causes issues with Link sometimes if not handled carefully
+                  asChild={false} 
                   isActive={isActive(item.href, item.matchSegments)}
                   className={cn(
                     'w-full justify-start',

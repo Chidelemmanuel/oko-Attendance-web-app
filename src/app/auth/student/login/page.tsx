@@ -56,9 +56,10 @@ export default function StudentLoginPage() {
         throw new Error(result.message || 'Something went wrong');
       }
       
-      // Store user role in localStorage
       if (typeof window !== 'undefined') {
         localStorage.setItem('userRole', result.user.role);
+        localStorage.setItem('userIdentifier', result.user.identifier);
+        localStorage.setItem('userFullName', result.user.fullName);
       }
 
       toast({
