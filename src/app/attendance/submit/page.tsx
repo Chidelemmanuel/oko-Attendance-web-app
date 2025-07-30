@@ -209,25 +209,29 @@ export default function SubmitAttendancePage() {
               )}
             />
 
-            <FormItem>
-                <FormLabel>Verified Location</FormLabel>
-                <div className="flex items-center gap-2 p-2 border rounded-md bg-muted">
-                    <ShieldCheck className="h-5 w-5 text-green-600" />
-                    <div className="flex-1">
-                        <p className="font-semibold text-green-700">Location Verified</p>
-                        {isPageEnabled && (
-                            <p className="text-sm text-muted-foreground">
-                                Lat: {parseFloat(verifiedLatitude).toFixed(4)}, Lon: {parseFloat(verifiedLongitude).toFixed(4)}
-                            </p>
-                        )}
-                    </div>
-                </div>
-                <FormField
-                    control={form.control}
-                    name="latitude"
-                    render={() => <FormMessage />}
-                />
-            </FormItem>
+            <FormField
+                control={form.control}
+                name="latitude"
+                render={({ field }) => (
+                    <FormItem className="hidden">
+                        <FormControl>
+                           <Input {...field} />
+                        </FormControl>
+                    </FormItem>
+                )}
+            />
+             <FormField
+                control={form.control}
+                name="longitude"
+                render={({ field }) => (
+                    <FormItem className="hidden">
+                        <FormControl>
+                           <Input {...field} />
+                        </FormControl>
+                    </FormItem>
+                )}
+            />
+
 
             <Button type="submit" className="w-full" disabled={isSubmitting || !isPageEnabled || !studentInfo.id}>
               {isSubmitting ? (
