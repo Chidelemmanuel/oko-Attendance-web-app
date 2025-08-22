@@ -10,6 +10,7 @@ import { useQuery } from "@tanstack/react-query";
 import { DashboardSkeleton } from "@/components/skeletons/dashboard-skeleton";
 import { StudentLocationVerifier } from "@/components/student-location-verifier";
 import { useEffect, useState } from "react";
+import { useRouter } from 'next/navigation';
 
 type DashboardStats = {
   totalStudents: number;
@@ -28,6 +29,7 @@ async function fetchDashboardStats(): Promise<DashboardStats> {
 
 export default function DashboardPage() {
   const [userRole, setUserRole] = useState<string | null>(null);
+  const router = useRouter();
   
   const { data: stats, isLoading, isError } = useQuery<DashboardStats>({
     queryKey: ['dashboardStats'],
@@ -38,8 +40,15 @@ export default function DashboardPage() {
      if (typeof window !== 'undefined') {
         const role = localStorage.getItem('userRole');
         setUserRole(role);
+        if (role === 'admin') {
+            router.replace('/admin/dashboard');
+        }
     }
-  }, []);
+  }, [router]);
+
+  if (userRole === 'admin') {
+      return <DashboardSkeleton />; // Or some other loading state while redirecting
+  }
 
   if (isLoading) {
     return <DashboardSkeleton />;

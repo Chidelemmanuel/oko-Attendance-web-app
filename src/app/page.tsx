@@ -4,7 +4,7 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { UserCheck, Briefcase, GraduationCap } from "lucide-react";
+import { UserCheck, Briefcase, GraduationCap, Shield } from "lucide-react";
 
 
 export default function LandingPage() {
@@ -18,12 +18,12 @@ export default function LandingPage() {
             Please select your portal to login or create an account.
         </p>
 
-      <Card className="w-full max-w-2xl">
+      <Card className="w-full max-w-4xl">
         <CardHeader>
           <CardTitle>Access Your Portal</CardTitle>
           <CardDescription>Login or sign up to access your specific features.</CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-4 md:grid-cols-2">
+        <CardContent className="grid gap-4 md:grid-cols-3">
           <Link href="/auth/student/login" passHref>
             <Button variant="default" className="w-full justify-center gap-2 py-8 text-base shadow-lg hover:shadow-xl transition-shadow">
               <UserCheck className="h-6 w-6" /> Student Portal
@@ -32,6 +32,11 @@ export default function LandingPage() {
           <Link href="/auth/lecturer/login" passHref>
             <Button variant="default" className="w-full justify-center gap-2 py-8 text-base shadow-lg hover:shadow-xl transition-shadow">
               <Briefcase className="h-6 w-6" /> Lecturer Portal
+            </Button>
+          </Link>
+           <Link href="/auth/admin/login" passHref>
+            <Button variant="secondary" className="w-full justify-center gap-2 py-8 text-base shadow-lg hover:shadow-xl transition-shadow md:col-span-1">
+              <Shield className="h-6 w-6" /> Admin Portal
             </Button>
           </Link>
         </CardContent>

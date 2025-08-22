@@ -35,7 +35,9 @@ export function SidebarContent() {
 
 
   const isActive = (href: string, matchSegments?: string[]) => {
-    if (href === '/dashboard') return pathname === '/dashboard';
+    if (href === '/dashboard' && userRole !== 'admin') return pathname === '/dashboard';
+    if (href === '/admin/dashboard') return pathname.startsWith('/admin');
+
     if (matchSegments) {
       const currentSegments = pathname.split('/').filter(Boolean);
       return matchSegments.every((segment, index) => currentSegments[index] === segment);
@@ -65,13 +67,18 @@ export function SidebarContent() {
   }
 
   const visibleNavItems = NAV_ITEMS.filter(item => 
-    !item.roles || (userRole && item.roles.includes(userRole as 'student' | 'lecturer'))
+    !item.roles || (userRole && item.roles.includes(userRole as 'student' | 'lecturer' | 'admin'))
   );
+
+  const getHomeLink = () => {
+    if (userRole === 'admin') return '/admin/dashboard';
+    return '/dashboard';
+  }
 
   return (
     <>
       <SidebarHeader className="p-4">
-        <Link href="/dashboard" className="flex items-center gap-2">
+        <Link href={getHomeLink()} className="flex items-center gap-2">
           <Logo className="h-8 w-8 text-primary" />
           <h1 className="text-xl font-semibold text-foreground group-data-[collapsible=icon]:hidden">
             OkoAttend

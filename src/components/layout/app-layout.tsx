@@ -15,7 +15,8 @@ import { Logo } from '../icons/logo';
 
 const AUTH_ROUTES = [
     '/auth/student/login', '/auth/student/signup',
-    '/auth/lecturer/login', '/auth/lecturer/signup'
+    '/auth/lecturer/login', '/auth/lecturer/signup',
+    '/auth/admin/login', '/auth/admin/signup'
 ];
 
 export function AppLayout({ children }: { children: React.ReactNode }) {

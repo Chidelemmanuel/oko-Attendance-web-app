@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, ClipboardCheck, MapPin, Settings, CheckCircle2, XCircle, AlertCircle, Info, KeyRound, Briefcase } from 'lucide-react';
+import { LayoutDashboard, Users, ClipboardCheck, MapPin, Settings, CheckCircle2, XCircle, AlertCircle, Info, KeyRound, Briefcase, Shield } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
 export type NavItem = {
@@ -6,7 +6,7 @@ export type NavItem = {
   label: string;
   icon: LucideIcon;
   matchSegments?: string[]; // For highlighting active link based on path segments
-  roles?: ('student' | 'lecturer')[]; // Role-based access control
+  roles?: ('student' | 'lecturer' | 'admin')[]; // Role-based access control
 };
 
 export const NAV_ITEMS: NavItem[] = [
@@ -15,6 +15,24 @@ export const NAV_ITEMS: NavItem[] = [
     label: 'Dashboard',
     icon: LayoutDashboard,
     roles: ['student', 'lecturer'],
+  },
+  {
+    href: '/admin/dashboard',
+    label: 'Admin Dashboard',
+    icon: Shield,
+    roles: ['admin'],
+  },
+  {
+    href: '/admin/users',
+    label: 'User Management',
+    icon: Users,
+    roles: ['admin'],
+  },
+  {
+    href: '/admin/courses',
+    label: 'Course Management',
+    icon: Briefcase,
+    roles: ['admin'],
   },
   {
     href: '/students',
@@ -38,7 +56,7 @@ export const NAV_ITEMS: NavItem[] = [
     href: '/tools/location-verifier',
     label: 'Location Verifier',
     icon: MapPin,
-    roles: ['student'], 
+    roles: ['student'],
   },
 ];
 
