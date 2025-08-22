@@ -7,17 +7,18 @@ import { cookies } from 'next/headers';
 
 async function getLecturerIdFromToken() {
     const token = cookies().get('auth_token')?.value;
-    if (!token) return null;
-
-    try {
-        const decoded = await verifyJwt(token);
-        if (decoded && decoded.role === 'lecturer') {
-            return decoded.userId as string;
-        }
-        return null;
-    } catch (error) {
+    if (!token) {
+        console.log('Auth token cookie not found');
         return null;
     }
+
+    const decoded = await verifyJwt(token);
+    if (decoded && decoded.role === 'lecturer') {
+        return decoded.userId as string;
+    }
+    
+    console.log('Token verification failed or role is not lecturer. Decoded:', decoded);
+    return null;
 }
 
 
@@ -50,7 +51,7 @@ export async function POST(req: NextRequest) {
     };
 
     const course = await CourseModel.findOneAndUpdate(
-        { code: courseCode },
+        { code: courseCode, lecturerId: lecturerId },
         { $set: courseData },
         { new: true, upsert: true, setDefaultsOnInsert: true }
     );
