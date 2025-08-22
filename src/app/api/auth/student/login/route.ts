@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongodb';
 import UserModel from '@/models/User';
 import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
+import { signJwt } from '@/lib/utils';
 import { cookies } from 'next/headers';
 
 
@@ -26,10 +26,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: 'Invalid credentials' }, { status: 401 });
     }
 
-    const token = jwt.sign(
+    const token = await signJwt(
       { userId: user._id, role: user.role, identifier: user.identifier, fullName: user.fullName },
-      process.env.JWT_SECRET || 'your_default_jwt_secret',
-      { expiresIn: '1d' }
+      '1d'
     );
 
     cookies().set('auth_token', token, {
